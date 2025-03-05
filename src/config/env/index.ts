@@ -14,8 +14,6 @@ export const envSchema = z.object({
   API_KEY: z.string(),
   API_QAS_URL: z.string(),
   API_PRD_URL: z.string(),
-  SERVER_URL: z.string().optional(),
-  SERVER_DESCRIPTION: z.string().optional(),
   API_QAS_DESCRIPTION: z.string().optional(),
   API_PRD_DESCRIPTION: z.string().optional(),
   WATSON_API_KEY: z.string(),

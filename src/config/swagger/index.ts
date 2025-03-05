@@ -32,12 +32,12 @@ export async function buildSwaggerOpenApi(app: FastifyInstance) {
       openapi: {
         openapi: '3.0.0',
         info: {
-          title: 'Chatbot Flor-APIproxy',
+          title: 'API - Chatbot Paraíso URA',
           version: '1',
         },
         servers: buildServersSchema(),
         paths: {},
-        tags: [{ name: 'User' }, { name: 'ServiceNow' }],
+        tags: [{ name: 'HelloWorld' }, { name: 'SendMessage' }],
         components: {
           securitySchemes: {
             apiKey: {

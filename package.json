@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts && npm run serve",
     "start": "node build/server.js",
+    "build": "tsup src --out-dir build",
     "lint": "eslint . --ext .ts"
   },
   "keywords": [],
@@ -35,6 +36,7 @@
     "eslint-plugin-prettier": "^5.2.3",
     "prettier": "^3.5.2",
     "ts-node": "^10.9.2",
+    "tsup": "^8.4.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.25.0",

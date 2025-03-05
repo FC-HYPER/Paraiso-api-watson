@@ -32,7 +32,7 @@ export async function buildSwaggerOpenApi(app: FastifyInstance) {
       openapi: {
         openapi: '3.0.0',
         info: {
-          title: 'API - Chatbot Paraíso URA',
+          title: 'API - Chatbot URA',
           version: '1',
         },
         servers: buildServersSchema(),

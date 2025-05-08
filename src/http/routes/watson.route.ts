@@ -4,9 +4,6 @@ import { $ref, watsonSchemas, WatsonInput } from '@/models/watson.schema';
 import { sendMessageHandler } from '../controllers/watson/send-message.controller';
 
 export async function watsonRoute(app: FastifyInstance) {
-  for (const schema of watsonSchemas) {
-    app.addSchema(schema);
-  }
 
   app.post<{ Body: WatsonInput }>(
     `${paths.watson}/message`,

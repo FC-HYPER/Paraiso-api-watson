@@ -10,6 +10,7 @@ export async function sendMessageHandler(
 ) {
   try {
     const { input, context } = request.body;
+   
     const response = await watsonAssistantInstance.sendMessage(input, context);
     
     return reply.status(200).send({

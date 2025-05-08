@@ -4,10 +4,12 @@ import { FastifyInstance } from 'fastify';
 import { interceptorLoggerHook } from '@/http/middlewares/interceptor-logger';
 import { buildSwaggerOpenApi } from '@/config/swagger';
 import { helloWorldSchemas } from '@/models/hello-world.schema';
+import { watsonSchemas } from '@/models/watson.schema';
 
 export default async function (app: FastifyInstance) {
   app.register(interceptorLoggerHook);
   helloWorldSchemas.forEach((schema) => app.addSchema(schema));
+  watsonSchemas.forEach((schema) => app.addSchema(schema));
   app.register(buildSwaggerOpenApi);
 
   routesMapper.forEach((route) => {

@@ -3,7 +3,7 @@ import { buildJsonSchemas } from 'fastify-zod';
 
 export const watsonRequestSchema = z.object({
   input: z.string(),
-  context: z.object({}).optional(),
+  context: z.any().optional(),
 });
 
 const watsonResponseSchema = z.object({

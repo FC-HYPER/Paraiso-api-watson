@@ -25,6 +25,14 @@ Essa resposta valida a decisão de transportar o `thread_id` dentro do `context`
 contrato (ver [03-middleware.md](03-middleware.md), seção 3.3). Se a leitura for genérica, a Aspa
 **não precisa mudar uma linha**. Se não for, o desenho muda.
 
+**3. Apontar o gateway para a rota nova.** A rota do Orchestrate é
+`POST /api/orchestrate/message` — nasceu ao lado da atual, que continua no ar. Requer o header
+`apikey` (a rota antiga não exigia).
+
+Para não obrigar mudança de parsing, a resposta **replica a forma do Watson**: o texto do agente sai
+em `data.output.generic[0].text` com `response_type: "text"`. Vale confirmar junto com a pergunta 2 —
+se a Aspa lê esse caminho, a migração é só troca de URL e inclusão do header.
+
 ### ▸ Webhook `/watson/solicitacao` — definir responsável
 
 O dialog skill atual chama diretamente um serviço em Google Cloud Run
@@ -42,8 +50,8 @@ Levantar **quem mantém esse serviço** e **o que ele faz**. Ele precisará vira
 | Rodar a compilação após cada push (botão *Executar novamente a compilação*) | — |
 | Verificar se existe gatilho automático de build por push do Git; se não, avaliar configurar webhook | baixa |
 | Remover `HABIB_API_URL` e `HABIB_BEARER_TOKEN` das variáveis do Code Engine | baixa — fazer ao final |
-| Logar `run_id` e `trace_id` da resposta do Orchestrate | média |
-| Redaction de CPF e proposta no `interceptor-logger` (LGPD) | média |
+| Definir se os 3 últimos dígitos preservados no log atendem à política de privacidade do cliente | baixa — decisão de compliance, não de código |
+| `prettier/prettier` acusa `Delete ␍` em todo arquivo do repositório: os arquivos são CRLF e o `.prettierrc.json` não define `endOfLine`. `npm run lint` falha por isso, não por código. Resolver com `"endOfLine": "crlf"` ou um `--fix` isolado num commit só de formatação | baixa |
 | `API_KEY` atual tem 2 caracteres — gerar chave real e combinar com a Aspa | **antes da produção** |
 | `package-lock.json` não é versionado; `npm install --force` resolve dependências do zero a cada build, sem reprodutibilidade | baixa |
 
@@ -65,6 +73,8 @@ o que tem prazo de espera — tratar junto com o item 4.1.
 | Investigar se **Guidelines** resolvem as regras determinísticas | A aba Behavior do agente tem "Guidelines" (regras estruturadas, distintas das instructions). Pode cobrir identificação antes do handoff, horário de expediente e resposta literal — reduzindo trabalho no middleware |
 | Textos de comunicação obrigatória com resposta literal | Avisos de ajuizamento e regras de renegociação não podem ser parafraseados pela busca semântica. Ver [01-diagnostico.md](01-diagnostico.md), seção 1.5 |
 | Triagem: os documentos da Paraíso cobrem o conteúdo dos 6 domínios ou só o comportamento? | Define se a base de conhecimento parte do material novo ou precisa extrair conteúdo do bot atual |
+| Como passar dados do cliente (telefone, CPF) ao agente? | **O Orchestrate lê apenas a última mensagem `user`.** Testado direto na API, sem o middleware, com a mesma pergunta e o mesmo agente: dado em `context` → não vê; `role: system` → não vê; `role: developer` → não vê; mensagem `user` anterior no array → não vê; **na própria mensagem `user` → vê** (respondeu "Marina Toledo"). Todos retornaram HTTP 200 — o descarte é silencioso. Consequência: o único canal para entregar dado ao agente hoje é o texto da mensagem. Capturar contexto no middleware não resolve. Se virar necessidade, concatenar com lista explícita de campos, só na primeira mensagem da thread, e tratar a LGPD (CPF entra no histórico guardado na IBM e no log). Não afeta o `thread_id`, que viaja no header `X-IBM-THREAD-ID` e está validado |
+| ⚠️ A API tem a forma da OpenAI, não o comportamento | O array `messages` **não é a conversa** — a conversa é a thread. Enviar histórico no array gasta banda e não muda a resposta. O middleware manda uma mensagem só, de propósito |
 
 ---
 
@@ -90,4 +100,7 @@ Registradas para não serem reinvestigadas.
 | Homologação e produção compartilham imagem? | **Sim, compartilhavam** (`:latest` em ambas). Resolvido: homologação agora publica e consome `:homolog` |
 | A thread do Orchestrate expira? | Sobreviveu a mais de uma hora, retomando o histórico. Não descarta TTL mais longo |
 | A integração do Portal do Cliente funcionava? | **Não, em nenhuma das pontas.** Nenhum dos 809 nós do diálogo gravava a variável `integration`, e o schema de resposta descartava o campo. Código removido |
+| Logar `run_id` e `trace_id` da resposta do Orchestrate | Implementado no controller da rota nova, junto do `thread_id`, na mesma linha de log |
+| Requisição malformada devolvia 500 | O error handler ignorava o `statusCode` do erro do Fastify. Corrigido: 4xx é honrado, 5xx continua virando 500 |
+| Redaction de CPF e proposta no log (LGPD) | Implementada em [`src/utils/redact.ts`](../src/utils/redact.ts), aplicada no `interceptor-logger` nas duas rotas. Mascara CPF/CNPJ pontuados e sequências de 5+ dígitos, **preservando os 3 últimos** para correlação. Opção de menu numérico (1, 2, 10) não é mascarada. `thread_id`, `run_id` e `trace_id` são preservados, senão perde-se a única forma de investigar. Vale só para o log — a resposta ao gateway sai intacta |
 | Por que o bug `env.APIKEY` nunca foi detectado? | `ignoreDeprecations: "6.0"` era inválido no TS 5.7 e impedia o `tsc` de rodar; o `tsup` não faz checagem de tipos. Corrigido |

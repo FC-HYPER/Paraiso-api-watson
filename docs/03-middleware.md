@@ -289,4 +289,4 @@ ser referenciadas a partir de um Secret, não como valor literal.
 
 Um `404` do Fastify em `GET /` (`{"message":"Route GET:/ not found",...}`) é resposta **saudável** —
 prova que a aplicação subiu e está roteando. A raiz não existe; as rotas são `/documentation`,
-`POST /api/hello-world` e `POST /api/watson/message`.
+`POST /api/hello-world`, `POST /api/watson/message` e `POST /api/orchestrate/message`.

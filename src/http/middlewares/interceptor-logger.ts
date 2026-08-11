@@ -1,3 +1,4 @@
+import { redact, redactPayload } from '@/utils/redact';
 import { FastifyInstance } from 'fastify';
 import fastifyPlugin from 'fastify-plugin';
 import { ZodError } from 'zod';
@@ -31,16 +32,17 @@ export async function interceptorLoggerHook(app: FastifyInstance) {
   app.addHook('preHandler', (request, _, done) => {
     if (!request.url.includes('documentation')) {
       request.log.info(
-        `IN [${request.method}] - ${request.url} ${request.method !== 'GET' ? `- [BODY]: ${JSON.stringify(request.body)}` : ''}`,
+        `IN [${request.method}] - ${request.url} ${request.method !== 'GET' ? `- [BODY]: ${JSON.stringify(redact(request.body))}` : ''}`,
       );
     }
 
     done();
   });
+  // `payload` é devolvido intacto ao gateway; o mascaramento vale só para o log.
   app.addHook('onSend', (request, reply, payload, done) => {
     if (!request.url.includes('documentation')) {
       request.log.info(
-        `OUT: [${request.method}] - ${request.url} - [${reply.statusCode}]  \n ${payload}`,
+        `OUT: [${request.method}] - ${request.url} - [${reply.statusCode}]  \n ${redactPayload(payload)}`,
       );
     }
     done();

@@ -20,6 +20,12 @@ const messageRequestSchema = z.object({
  * TODOS os campos precisam estar declarados aqui. O Fastify serializa pelo schema
  * e descarta em silêncio o que não estiver declarado — foi assim que o campo
  * `integration` desapareceu na implementação atual.
+ *
+ * ⚠️ Antes de emitir anexo, estenda `generic` aqui primeiro. O gateway da Aspa
+ * percorre o array inteiro e aceita `text` **ou** `attachment` (URL de download
+ * desprotegida), mas um campo `attachment` adicionado só no controller seria
+ * descartado na serialização, sem erro nenhum. Confirmar antes com a Aspa a forma
+ * exata que eles esperam. Ver docs/04-pendencias.md 4.1.
  */
 const messageResponseSchema = z.object({
   success: z.boolean(),

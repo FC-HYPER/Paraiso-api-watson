@@ -28,9 +28,14 @@ export const envSchema = z.object({
   // Opcional: tem padrão, por isso não precisa ser cadastrada no Code Engine.
   // O preprocess trata variável cadastrada com valor vazio, que seria convertida
   // para 0 e abortaria toda requisição imediatamente.
+  //
+  // 60s: o gateway da Aspa espera 3 minutos e recomenda ficar dentro de 2, então
+  // somos o elo mais curto da cadeia. Hoje o agente responde em 2 a 4 segundos, mas
+  // isso vai subir quando ele passar a chamar tools — e abortar aos 30s uma
+  // requisição que o gateway ainda esperaria por dois minutos seria desperdício.
   WXO_TIMEOUT_MS: z.preprocess(
     (value) => (value === '' || value === undefined ? undefined : value),
-    z.coerce.number().int().positive().default(30_000),
+    z.coerce.number().int().positive().default(60_000),
   ),
 });
 

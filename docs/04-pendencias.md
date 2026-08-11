@@ -36,6 +36,10 @@ implementação antiga. Se um dia o agente devolver anexo, o schema tem que ser 
 `POST /api/orchestrate/message`, enviando o header `apikey`. O valor da chave será passado em call,
 não por e-mail.
 
+**Perguntar quando houver necessidade de anexo:** a forma exata que esperam em `attachment` — o campo
+recebe a URL direto (`"attachment": "https://…"`) ou um objeto? Sem isso, implementar anexo é chutar
+o contrato. Barato de perguntar enquanto o canal está aberto.
+
 ### ▸ Webhook `/watson/solicitacao` — definir responsável
 
 O dialog skill atual chama diretamente um serviço em Google Cloud Run
@@ -57,6 +61,8 @@ Levantar **quem mantém esse serviço** e **o que ele faz**. Ele precisará vira
 | `prettier/prettier` acusa `Delete ␍` em todo arquivo do repositório: os arquivos são CRLF e o `.prettierrc.json` não define `endOfLine`. `npm run lint` falha por isso, não por código. Resolver com `"endOfLine": "crlf"` ou um `--fix` isolado num commit só de formatação | baixa |
 | Cota do Container Registry estourada (500 MB do plano gratuito). Limpar os digests sem tag e avaliar subir o plano — com dois ambientes, o gratuito trava a cada poucos deploys. **Nunca apagar `:latest`** (produção) nem a `:homolog` em uso | **bloqueia deploy** |
 | `fastify-zod@1.4.0` declara peer `fastify@^4.15.0` e o projeto roda fastify 5. Funciona, mas é combinação não suportada pela biblioteca, e obriga `--legacy-peer-deps` em todo install. Avaliar substituir por `fastify-type-provider-zod`, que suporta fastify 5 | média |
+| **Cadastrar `NODE_ENV=production` na aplicação de produção.** A documentação passou a ser registrada só fora de produção, mas o gate depende dessa variável. Sem ela o schema assume o padrão `qas` e o `/documentation` continua público | **antes da produção** |
+| `@fastify/static <=10.1.1` segue vulnerável (path traversal, bypass de guarda de rota) via `@fastify/swagger-ui`. Corrigir exige `@fastify/swagger-ui@6`, breaking. Mitigado por não registrar a documentação em produção, mas a dependência continua na imagem e o scanner continua acusando | média |
 | Imagem de produção (`:latest`) tem 351 dias. Promover imagem nova leva um ano de deriva de dependência de uma vez — `fastify` de 5.2 para 5.8, entre outros. Testar em homologação antes de promover | **antes da produção** |
 | Confirmar o valor da `API_KEY` cadastrada no Code Engine e combinar com a Aspa — a rota nova exige o header | **antes do teste ponta a ponta** |
 | Fixar a imagem base: `node:20-alpine` é tag móvel e continua sendo fonte de deriva entre builds | baixa |

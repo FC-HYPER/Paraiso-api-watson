@@ -55,15 +55,19 @@ Levantar **quem mantém esse serviço** e **o que ele faz**. Ele precisará vira
 | Cota do Container Registry estourada (500 MB do plano gratuito). Limpar os digests sem tag e avaliar subir o plano — com dois ambientes, o gratuito trava a cada poucos deploys. **Nunca apagar `:latest`** (produção) nem a `:homolog` em uso | **bloqueia deploy** |
 | `fastify-zod@1.4.0` declara peer `fastify@^4.15.0` e o projeto roda fastify 5. Funciona, mas é combinação não suportada pela biblioteca, e obriga `--legacy-peer-deps` em todo install. Avaliar substituir por `fastify-type-provider-zod`, que suporta fastify 5 | média |
 | Imagem de produção (`:latest`) tem 351 dias. Promover imagem nova leva um ano de deriva de dependência de uma vez — `fastify` de 5.2 para 5.8, entre outros. Testar em homologação antes de promover | **antes da produção** |
-| `API_KEY` atual tem 2 caracteres — gerar chave real e combinar com a Aspa | **antes da produção** |
+| Confirmar o valor da `API_KEY` cadastrada no Code Engine e combinar com a Aspa — a rota nova exige o header | **antes do teste ponta a ponta** |
 | Fixar a imagem base: `node:20-alpine` é tag móvel e continua sendo fonte de deriva entre builds | baixa |
 
 ### Sobre a `API_KEY`
 
-O valor configurado tem 2 caracteres — é placeholder, não credencial. A comparação em
-`validate-key.middleware.ts` foi corrigida (comparava `env.APIKEY`, variável inexistente), então a
-autenticação **agora funciona de verdade**. Gerar uma chave real exige combinar o valor com a Aspa,
-o que tem prazo de espera — tratar junto com o item 4.1.
+> **Correção (11/08/2026):** este item afirmava que o valor tinha 2 caracteres e era placeholder.
+> **Está errado.** O `.env` local tem uma chave de **44 caracteres**, compatível com 32 bytes em
+> base64 — credencial real. Não há chave a gerar. Confirmar apenas se o valor cadastrado no Code
+> Engine de homologação é o mesmo, já que é ele que a Aspa precisa enviar.
+
+A comparação em `validate-key.middleware.ts` foi corrigida (comparava `env.APIKEY`, variável
+inexistente), então a autenticação **funciona de verdade**. A rota nova aplica o middleware via
+`preHandler`; a antiga continua sem autenticação até o cutover.
 
 ---
 

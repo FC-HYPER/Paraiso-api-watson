@@ -37,7 +37,11 @@ export async function buildSwaggerOpenApi(app: FastifyInstance) {
         },
         servers: buildServersSchema(),
         paths: {},
-        tags: [{ name: 'HelloWorld' }, { name: 'SendMessage' }],
+        tags: [
+          { name: 'HelloWorld' },
+          { name: 'SendMessage', description: 'Watson Assistant (dropped at cutover)' },
+          { name: 'Orchestrate', description: 'watsonx Orchestrate' },
+        ],
         components: {
           securitySchemes: {
             apiKey: {

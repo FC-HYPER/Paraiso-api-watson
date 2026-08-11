@@ -19,6 +19,19 @@ export const envSchema = z.object({
   WATSON_API_KEY: z.string(),
   WATSON_ASSISTANT_ID: z.string(),
   WATSON_ENVIRONMENT_ID: z.string(),
+  WXO_INSTANCE_URL: z
+    .string()
+    .url()
+    .transform((url) => url.replace(/\/+$/, '')),
+  WXO_API_KEY: z.string(),
+  WXO_AGENT_ID: z.string(),
+  // Opcional: tem padrão, por isso não precisa ser cadastrada no Code Engine.
+  // O preprocess trata variável cadastrada com valor vazio, que seria convertida
+  // para 0 e abortaria toda requisição imediatamente.
+  WXO_TIMEOUT_MS: z.preprocess(
+    (value) => (value === '' || value === undefined ? undefined : value),
+    z.coerce.number().int().positive().default(30_000),
+  ),
 });
 
 const _env = envSchema.safeParse(process.env);

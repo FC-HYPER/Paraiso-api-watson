@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="800" viewBox="0 0 1100 800" font-family="Arial, Helvetica, sans-serif">
+
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="black"/>
+    </marker>
+  </defs>
+
+  <!-- White background -->
+  <rect width="1100" height="800" fill="white"/>
+
+  <!-- =============================== -->
+  <!-- CLIENTE (stick figure)          -->
+  <!-- =============================== -->
+  <circle cx="46" cy="278" r="14" fill="none" stroke="black" stroke-width="1.5"/>
+  <line x1="46" y1="292" x2="46" y2="330" stroke="black" stroke-width="1.5"/>
+  <line x1="27" y1="308" x2="65" y2="308" stroke="black" stroke-width="1.5"/>
+  <line x1="46" y1="330" x2="27" y2="358" stroke="black" stroke-width="1.5"/>
+  <line x1="46" y1="330" x2="65" y2="358" stroke="black" stroke-width="1.5"/>
+  <text x="46" y="376" text-anchor="middle" font-size="12">Cliente</text>
+
+  <!-- Arrow: Cliente -> Aspa -->
+  <line x1="65" y1="308" x2="98" y2="308" stroke="black" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="81" y="300" text-anchor="middle" font-size="9" fill="#444">WhatsApp</text>
+
+  <!-- =============================== -->
+  <!-- ASPA BOX                        -->
+  <!-- =============================== -->
+  <rect x="100" y="158" width="198" height="342" fill="none" stroke="black" stroke-width="1.5"/>
+  <text x="112" y="177" font-size="12" font-weight="bold">Aspa</text>
+
+  <!-- WhatsApp Gateway (BLACK) -->
+  <rect x="120" y="256" width="158" height="76" fill="black"/>
+  <text x="199" y="288" text-anchor="middle" fill="white" font-size="12" font-weight="bold">WhatsApp</text>
+  <text x="199" y="310" text-anchor="middle" fill="white" font-size="12" font-weight="bold">Gateway</text>
+
+  <!-- Extrator de Logs -->
+  <rect x="120" y="384" width="158" height="62" fill="none" stroke="black" stroke-width="1"/>
+  <text x="199" y="419" text-anchor="middle" font-size="12">Extrator de Logs</text>
+
+  <!-- Arrow: Aspa WhatsApp GW -> IBM Cloud Orquestrador -->
+  <line x1="278" y1="294" x2="477" y2="294" stroke="black" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <text x="378" y="284" text-anchor="middle" font-size="10" fill="#333">REST API</text>
+  <text x="378" y="311" text-anchor="middle" font-size="9" fill="#666">POST /api/watson/message</text>
+
+  <!-- =============================== -->
+  <!-- IBM CLOUD BOX                   -->
+  <!-- =============================== -->
+  <rect x="322" y="82" width="462" height="548" fill="none" stroke="black" stroke-width="1.5"/>
+  <text x="334" y="101" font-size="12" font-weight="bold">IBM Cloud</text>
+
+  <!-- Watson Assistant -->
+  <rect x="478" y="132" width="205" height="65" fill="none" stroke="black" stroke-width="1.2"/>
+  <text x="580" y="168" text-anchor="middle" font-size="13">Watson Assistant</text>
+
+  <!-- Bidirectional arrow: Watson <-> Orquestrador -->
+  <line x1="583" y1="197" x2="583" y2="256" stroke="black" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+  <line x1="577" y1="256" x2="577" y2="197" stroke="black" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- Orquestrador Code Engine -->
+  <rect x="478" y="258" width="205" height="76" fill="none" stroke="black" stroke-width="1.2"/>
+  <text x="580" y="291" text-anchor="middle" font-size="13">Orquestrador</text>
+  <text x="580" y="314" text-anchor="middle" font-size="11">Code Engine</text>
+
+  <!-- Arrow: Orquestrador -> API Server -->
+  <line x1="580" y1="334" x2="580" y2="422" stroke="black" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- API Server Code Engine -->
+  <rect x="478" y="424" width="205" height="76" fill="none" stroke="black" stroke-width="1.2"/>
+  <text x="580" y="457" text-anchor="middle" font-size="13">API Server</text>
+  <text x="580" y="480" text-anchor="middle" font-size="11">Code Engine</text>
+
+  <!-- Arrow: API Server -> Paraiso Gold -->
+  <line x1="683" y1="462" x2="828" y2="462" stroke="black" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+  <!-- =============================== -->
+  <!-- PARAISO GOLD BOX                -->
+  <!-- =============================== -->
+  <rect x="830" y="158" width="240" height="460" fill="none" stroke="black" stroke-width="1.5"/>
+  <text x="842" y="177" font-size="12" font-weight="bold">Paraiso Gold</text>
+
+  <!-- Portal do Cliente (Habib) — aligned with API Server -->
+  <rect x="848" y="422" width="205" height="90" fill="none" stroke="black" stroke-width="1.2"/>
+  <text x="950" y="455" text-anchor="middle" font-size="12">Portal do Cliente</text>
+  <text x="950" y="474" text-anchor="middle" font-size="11">(Habib)</text>
+  <text x="950" y="493" text-anchor="middle" font-size="9" fill="#666">/boletos · /portal/contexto</text>
+
+  <!-- Sistema de Cadastro (a ser definido) — dashed box -->
+  <rect x="848" y="532" width="205" height="66" fill="none" stroke="#aaa" stroke-width="1" stroke-dasharray="6,3"/>
+  <text x="950" y="561" text-anchor="middle" font-size="11" fill="#999">Sistema de Cadastro</text>
+  <text x="950" y="580" text-anchor="middle" font-size="10" fill="#bbb">(a ser definido)</text>
+
+  <!-- =============================== -->
+  <!-- METADATA TABLE                  -->
+  <!-- =============================== -->
+  <rect x="0" y="698" width="1100" height="60" fill="none" stroke="black" stroke-width="1"/>
+  <line x1="275" y1="698" x2="275" y2="758" stroke="black" stroke-width="0.8"/>
+  <line x1="700" y1="698" x2="700" y2="758" stroke="black" stroke-width="0.8"/>
+  <line x1="900" y1="698" x2="900" y2="758" stroke="black" stroke-width="0.8"/>
+  <line x1="0" y1="728" x2="1100" y2="728" stroke="black" stroke-width="0.8"/>
+
+  <!-- Row 1 -->
+  <text x="8" y="718" font-size="11"><tspan font-weight="bold">Cliente: </tspan>FC Hyper / Paraiso Gold</text>
+  <text x="283" y="718" font-size="11"><tspan font-weight="bold">Escopo: </tspan>Agente Virtual WhatsApp</text>
+  <text x="708" y="718" font-size="11"><tspan font-weight="bold">Elaborado por:</tspan></text>
+  <text x="908" y="718" font-size="11"><tspan font-weight="bold">Versão: </tspan>1.0.0</text>
+
+  <!-- Row 2 -->
+  <text x="8" y="750" font-size="11"><tspan font-weight="bold">Projeto: </tspan>Paraiso API Watson</text>
+  <text x="908" y="750" font-size="11"><tspan font-weight="bold">Data: </tspan>09/06/2026</text>
+
+  <!-- Architects footer row -->
+  <rect x="0" y="758" width="1100" height="42" fill="none" stroke="black" stroke-width="1"/>
+  <line x1="366" y1="758" x2="366" y2="800" stroke="black" stroke-width="0.8"/>
+  <line x1="733" y1="758" x2="733" y2="800" stroke="black" stroke-width="0.8"/>
+  <text x="8" y="783" font-size="11">
+    <tspan font-weight="bold">Arquiteto de Negócio: </tspan>
+  </text>
+  <text x="374" y="783" font-size="11">
+    <tspan font-weight="bold">Arquiteto de Solução: </tspan>
+  </text>
+  <text x="741" y="783" font-size="11">
+    <tspan font-weight="bold">Arquiteto de Tecnologia: </tspan>
+  </text>
+
+</svg>

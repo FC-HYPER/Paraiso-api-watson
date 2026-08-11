@@ -3,3 +3,10 @@
 
 package-lock.json
 .env
+# AI tools settings
+.claude/
+.cursor/
+
+# Exports do Watson Assistant: contem secrets de webhook e dados de treino de clientes
+analise_dialog_atual/
+*-dialog-v*.json

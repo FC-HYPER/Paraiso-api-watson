@@ -22,9 +22,13 @@ export class WatsonAssistant {
     const payload: any = {
       assistantId: this.assistantId,
       environmentId: process.env.WATSON_ENVIRONMENT_ID || '',
-      input: { message_type: 'text', text: input, options: {
-        return_context: true,
-      } },
+      input: {
+        message_type: 'text',
+        text: input,
+        options: {
+          return_context: true,
+        },
+      },
     };
 
     if (context && Object.keys(context).length > 0) {

@@ -52,8 +52,11 @@ Levantar **quem mantém esse serviço** e **o que ele faz**. Ele precisará vira
 | Remover `HABIB_API_URL` e `HABIB_BEARER_TOKEN` das variáveis do Code Engine | baixa — fazer ao final |
 | Definir se os 3 últimos dígitos preservados no log atendem à política de privacidade do cliente | baixa — decisão de compliance, não de código |
 | `prettier/prettier` acusa `Delete ␍` em todo arquivo do repositório: os arquivos são CRLF e o `.prettierrc.json` não define `endOfLine`. `npm run lint` falha por isso, não por código. Resolver com `"endOfLine": "crlf"` ou um `--fix` isolado num commit só de formatação | baixa |
+| Cota do Container Registry estourada (500 MB do plano gratuito). Limpar os digests sem tag e avaliar subir o plano — com dois ambientes, o gratuito trava a cada poucos deploys. **Nunca apagar `:latest`** (produção) nem a `:homolog` em uso | **bloqueia deploy** |
+| `fastify-zod@1.4.0` declara peer `fastify@^4.15.0` e o projeto roda fastify 5. Funciona, mas é combinação não suportada pela biblioteca, e obriga `--legacy-peer-deps` em todo install. Avaliar substituir por `fastify-type-provider-zod`, que suporta fastify 5 | média |
+| Imagem de produção (`:latest`) tem 351 dias. Promover imagem nova leva um ano de deriva de dependência de uma vez — `fastify` de 5.2 para 5.8, entre outros. Testar em homologação antes de promover | **antes da produção** |
 | `API_KEY` atual tem 2 caracteres — gerar chave real e combinar com a Aspa | **antes da produção** |
-| `package-lock.json` não é versionado; `npm install --force` resolve dependências do zero a cada build, sem reprodutibilidade | baixa |
+| Fixar a imagem base: `node:20-alpine` é tag móvel e continua sendo fonte de deriva entre builds | baixa |
 
 ### Sobre a `API_KEY`
 
@@ -102,5 +105,7 @@ Registradas para não serem reinvestigadas.
 | A integração do Portal do Cliente funcionava? | **Não, em nenhuma das pontas.** Nenhum dos 809 nós do diálogo gravava a variável `integration`, e o schema de resposta descartava o campo. Código removido |
 | Logar `run_id` e `trace_id` da resposta do Orchestrate | Implementado no controller da rota nova, junto do `thread_id`, na mesma linha de log |
 | Requisição malformada devolvia 500 | O error handler ignorava o `statusCode` do erro do Fastify. Corrigido: 4xx é honrado, 5xx continua virando 500 |
+| Por que a imagem nova ficou 35 MB maior que a de produção? | Deriva de dependência, não código novo. O `package.json` não muda desde 05/03/2025 e nenhuma dependência foi adicionada; sem lockfile versionado, cada `npm install --force` reresolvia todos os `^` para a versão mais nova (`typescript` 5.7→5.9, `vite` 6.2→6.4, `fastify` 5.2→5.8). Resolvido: lockfile versionado e `npm ci` no Dockerfile |
+| `package-lock.json` não versionado, builds não reprodutíveis | Lockfile versionado e Dockerfile passou a usar `npm ci`. Build multi-stage: a imagem final leva só dependências de produção, e o `node_modules` caiu de 199 MB para 59 MB. Validado rodando o `build/` contra apenas as deps de produção — rota nova, rota antiga, Swagger e log com redaction, todos ok |
 | Redaction de CPF e proposta no log (LGPD) | Implementada em [`src/utils/redact.ts`](../src/utils/redact.ts), aplicada no `interceptor-logger` nas duas rotas. Mascara CPF/CNPJ pontuados e sequências de 5+ dígitos, **preservando os 3 últimos** para correlação. Opção de menu numérico (1, 2, 10) não é mascarada. `thread_id`, `run_id` e `trace_id` são preservados, senão perde-se a única forma de investigar. Vale só para o log — a resposta ao gateway sai intacta |
 | Por que o bug `env.APIKEY` nunca foi detectado? | `ignoreDeprecations: "6.0"` era inválido no TS 5.7 e impedia o `tsc` de rodar; o `tsup` não faz checagem de tipos. Corrigido |

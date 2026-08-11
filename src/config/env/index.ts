@@ -19,8 +19,6 @@ export const envSchema = z.object({
   WATSON_API_KEY: z.string(),
   WATSON_ASSISTANT_ID: z.string(),
   WATSON_ENVIRONMENT_ID: z.string(),
-  HABIB_API_URL: z.string(),
-  HABIB_BEARER_TOKEN: z.string(),
 });
 
 const _env = envSchema.safeParse(process.env);

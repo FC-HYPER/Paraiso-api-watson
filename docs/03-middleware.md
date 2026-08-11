@@ -61,9 +61,11 @@ id, object, created, model, choices, thread_id, run_id, trace_id
 log** — são eles que permitem correlacionar um atendimento problemático com a execução
 correspondente no painel do Orchestrate.
 
-**Em aberto:** não foi testado se a thread tem prazo de validade (TTL). Relevante no WhatsApp, onde
-o cliente costuma retomar a conversa horas depois. Testar antes da produção e, se houver TTL,
-tratar a thread expirada abrindo uma nova de forma transparente em vez de retornar erro.
+**TTL da thread:** a mesma thread foi retomada com sucesso mais de uma hora depois — o agente ainda
+recuperou informação dada na primeira mensagem, e o `thread_id` devolvido continuou o mesmo. Não
+descarta um TTL mais longo (dias), mas cobre o padrão de uso do WhatsApp, em que o cliente retoma a
+conversa horas depois. Se um TTL for encontrado em produção, tratar a thread expirada abrindo uma
+nova de forma transparente em vez de retornar erro.
 
 ---
 
@@ -231,3 +233,60 @@ vez, no momento da geração).
 5. `npx tsc --noEmit` — o `npm run build` (tsup) **não** faz typecheck, e foi por isso que o bug
    `env.APIKEY` sobreviveu. Vale adicionar ao CI.
 6. Conversa real via WhatsApp com o gateway apontando para a rota nova
+
+---
+
+## 3.8 Esteira de deploy (configurada em 11/08/2026)
+
+### Ambientes
+
+| Ambiente | Aplicação (Code Engine) | Imagem |
+|---|---|---|
+| Produção | `paraiso-api-ura-watson-prod` | `private.us.icr.io/watson-paraiso-api/paraiso-api:latest` |
+| Homologação | `paraiso-api-ura-watson-homolog` | `private.us.icr.io/watson-paraiso-api/paraiso-api:homolog` |
+
+**As tags separam os ambientes.** Antes desta configuração, as duas aplicações apontavam para a
+mesma imagem `:latest` — qualquer build para testar em homologação entraria em produção no próximo
+restart de instância. **Nunca publicar em `:latest`** a partir do fluxo de desenvolvimento; produção
+só muda por promoção consciente.
+
+### Build automático
+
+A aplicação de homologação tem uma compilação a partir da fonte:
+
+| | |
+|---|---|
+| Repositório | `github.com/FC-HYPER/Paraiso-api-watson` |
+| Branch | `feat/migracao-orchestrate` |
+| Autenticação | deploy key SSH já existente no repositório (read-only) |
+| Estratégia | Dockerfile (raiz), timeout 10m, recursos `medium` |
+| Saída | `private.us.icr.io/watson-paraiso-api/paraiso-api:homolog` |
+
+Ciclo de trabalho: **`git push` na branch → build → deploy em homologação**. Não requer Docker nem
+CLI da IBM na máquina do desenvolvedor.
+
+Build completo leva de 3 a 6 minutos, dominado pelo `npm install --force` (o projeto não versiona
+`package-lock.json`, então as dependências são resolvidas do zero a cada build).
+
+### ⚠️ Variáveis de ambiente são fail-fast
+
+[`src/config/env/index.ts`](../src/config/env/index.ts) valida o ambiente com Zod e **lança exceção
+na inicialização** se faltar qualquer variável obrigatória. O contêiner morre antes de abrir a porta,
+e o sintoma no Code Engine é a revisão presa em "Implementando" com tráfego 0%.
+
+Foi o que aconteceu no primeiro build: a imagem anterior de homologação era anterior ao commit
+`b0ec88a`, e as variáveis `HABIB_API_URL` e `HABIB_BEARER_TOKEN` nunca haviam sido cadastradas.
+
+**Pendência para produção:** a aplicação de produção provavelmente tem a mesma lacuna. Promover uma
+imagem nova para lá sem cadastrar essas variáveis derruba o ambiente real. Conferir antes de
+qualquer publicação em produção.
+
+Ao adicionar `WXO_INSTANCE_URL`, `WXO_API_KEY` e `WXO_AGENT_ID` ao schema, cadastrá-las **também**
+no CodeEngine — já estão configuradas em homologação. `HABIB_BEARER_TOKEN` e `WXO_API_KEY` devem
+ser referenciadas a partir de um Secret, não como valor literal.
+
+### Verificação rápida do ambiente
+
+Um `404` do Fastify em `GET /` (`{"message":"Route GET:/ not found",...}`) é resposta **saudável** —
+prova que a aplicação subiu e está roteando. A raiz não existe; as rotas são `/documentation`,
+`POST /api/hello-world` e `POST /api/watson/message`.

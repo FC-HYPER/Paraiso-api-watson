@@ -11,7 +11,7 @@ export async function interceptorLoggerHook(app: FastifyInstance) {
     }
 
     return reply.status(500).send({
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Internal server error',
       success: false,
     });
   });

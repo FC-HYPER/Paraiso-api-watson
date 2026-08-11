@@ -10,28 +10,31 @@ Atualizado em 11/08/2026.
 Estas têm prazo de espera fora do nosso controle. Solicitar no início, não quando o código ficar
 pronto.
 
-### ▸ E-mail para a Aspa (duas perguntas de uma vez)
+### ▸ Aspa — respondido em 11/08/2026 ✅
 
-**1. Habilitar WhatsApp em homologação.** Precisamos de um número de teste apontando para a
-aplicação `paraiso-api-ura-watson-homolog`, para validar o fluxo ponta a ponta pelo WhatsApp real.
-Envolve o time deles e possivelmente um número novo.
+O e-mail com as três perguntas foi respondido. **As três confirmam o desenho adotado; nenhuma
+mudança de código é necessária.**
 
-**2. Como a Aspa lê o `context` da nossa resposta?**
+| Pergunta | Resposta da Aspa | Efeito |
+|---|---|---|
+| Como leem o `context` da resposta? | *"Lemos de forma genérica, não modificamos e nem esperamos algum valor específico ali dentro"* | Valida transportar o `thread_id` dentro do `context`. A Aspa **não muda uma linha** |
+| Leem a resposta em `data.output.generic[0].text`? | *"É completamente configurável. Hoje buscamos em `data.output.generic`, sempre esperamos um array, e enviamos **todas** as mensagens desse array, buscando `text` ou `attachment`"* | Nossa forma atual funciona. Ver os dois desdobramentos abaixo |
+| Qual o timeout do gateway? | **3 minutos**, com recomendação de manter dentro de **2 minutos** | Folga enorme. Nosso timeout de 30s passa a ser o elo mais curto da cadeia |
 
-> *"Vocês leem o `context` da resposta de forma genérica — guardam e devolvem como veio — ou esperam
-> campos específicos dentro dele?"*
+**Desdobramento 1 — o gateway envia o array inteiro.** Podemos devolver **várias mensagens** numa
+resposta, e cada item vira uma mensagem no WhatsApp. Hoje sempre emitimos um item só. Não é problema,
+mas é capacidade disponível se o agente passar a responder em blocos.
 
-Essa resposta valida a decisão de transportar o `thread_id` dentro do `context` sem alterar o
-contrato (ver [03-middleware.md](03-middleware.md), seção 3.3). Se a leitura for genérica, a Aspa
-**não precisa mudar uma linha**. Se não for, o desenho muda.
+**Desdobramento 2 — a Aspa suporta `attachment`**, que precisa ser uma URL de download **desprotegida**.
+Isso é diretamente relevante para o domínio de boletos. ⚠️ Mas o schema de resposta em
+[`message.schema.ts`](../src/models/message.schema.ts) declara os itens do `generic` como
+`{ response_type, text }`, os dois obrigatórios e sem propriedades adicionais — um campo `attachment`
+seria **descartado em silêncio** pelo Fastify, exatamente o bug que apagou o campo `integration` na
+implementação antiga. Se um dia o agente devolver anexo, o schema tem que ser estendido primeiro.
 
-**3. Apontar o gateway para a rota nova.** A rota do Orchestrate é
-`POST /api/orchestrate/message` — nasceu ao lado da atual, que continua no ar. Requer o header
-`apikey` (a rota antiga não exigia).
-
-Para não obrigar mudança de parsing, a resposta **replica a forma do Watson**: o texto do agente sai
-em `data.output.generic[0].text` com `response_type: "text"`. Vale confirmar junto com a pergunta 2 —
-se a Aspa lê esse caminho, a migração é só troca de URL e inclusão do header.
+**Ainda pendente com eles:** habilitar homologação e apontar o gateway para
+`POST /api/orchestrate/message`, enviando o header `apikey`. O valor da chave será passado em call,
+não por e-mail.
 
 ### ▸ Webhook `/watson/solicitacao` — definir responsável
 
@@ -106,6 +109,8 @@ Registradas para não serem reinvestigadas.
 | Deploy automático por `git push` derruba produção? | **Não.** Não havia build configurado; as aplicações rodavam imagem publicada manualmente |
 | Homologação e produção compartilham imagem? | **Sim, compartilhavam** (`:latest` em ambas). Resolvido: homologação agora publica e consome `:homolog` |
 | A thread do Orchestrate expira? | Sobreviveu a mais de uma hora, retomando o histórico. Não descarta TTL mais longo |
+| A Aspa precisa mudar para receber o `thread_id` no `context`? | **Não.** Confirmado por eles: leem o `context` de forma genérica, não modificam e não esperam campo específico |
+| O timeout do gateway aguarda a resposta do Orchestrate? | **Sim, com folga.** O gateway espera 3 minutos e recomenda ficar dentro de 2. A latência medida em homologação foi de 2,1s a 3,5s |
 | A integração do Portal do Cliente funcionava? | **Não, em nenhuma das pontas.** Nenhum dos 809 nós do diálogo gravava a variável `integration`, e o schema de resposta descartava o campo. Código removido |
 | Logar `run_id` e `trace_id` da resposta do Orchestrate | Implementado no controller da rota nova, junto do `thread_id`, na mesma linha de log |
 | Requisição malformada devolvia 500 | O error handler ignorava o `statusCode` do erro do Fastify. Corrigido: 4xx é honrado, 5xx continua virando 500 |

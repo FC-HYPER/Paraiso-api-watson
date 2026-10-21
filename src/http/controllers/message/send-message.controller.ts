@@ -1,25 +1,63 @@
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { OrchestrateAgent, OrchestrateError } from 'services/orchestrate.service';
+import { z } from 'zod';
 
 const orchestrateAgent = new OrchestrateAgent();
+
+/**
+ * Onde a Aspa coloca os dados do contato. Leitura tolerante: um contexto fora
+ * desse formato não pode derrubar a requisição, só deixa de repassar o dado.
+ */
+const aspaContextSchema = z
+  .object({
+    skills: z
+      .object({
+        'main skill': z
+          .object({
+            user_defined: z
+              .object({ phone: z.union([z.string(), z.number()]).optional() })
+              .passthrough()
+              .optional(),
+          })
+          .passthrough()
+          .optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+/**
+ * Só segue para o agente o que ele precisa, em nomes planos. A run só aceita
+ * o que estiver em `context_variables` do agente, e o contexto da Aspa tem
+ * chaves com espaço (`main skill`), que a IBM desaconselha.
+ */
+function buildAgentContext(context: unknown): Record<string, unknown> {
+  const parsed = aspaContextSchema.safeParse(context);
+  const phone = parsed.success
+    ? parsed.data.skills?.['main skill']?.user_defined?.phone
+    : undefined;
+
+  return phone !== undefined && phone !== '' ? { phone: String(phone) } : {};
+}
 
 export async function sendMessageHandler(
   request: FastifyRequest<{ Body: MessageInput }>,
   reply: FastifyReply,
 ) {
   const { input, context } = request.body;
-  // O thread_id sai do contexto; o resto segue para o agente.
-  const { thread_id: threadId, ...userContext } = context ?? {};
+  const threadId = context?.thread_id;
 
   try {
     const result = await orchestrateAgent.sendMessage(
-      { message: input, threadId, context: userContext },
+      { message: input, threadId, context: buildAgentContext(context) },
       request.log,
     );
 
+    // Só as chaves: os valores podem trazer dado pessoal (telefone).
     request.log.info(
-      `[orchestrate] thread_id=${result.threadId ?? '-'} run_id=${result.runId ?? '-'} trace_id=${result.traceId ?? '-'}`,
+      `[orchestrate] thread_id=${result.threadId ?? '-'} run_id=${result.runId ?? '-'} trace_id=${result.traceId ?? '-'} context_keys=${Object.keys(result.context).join(',') || '-'}`,
     );
 
     // A forma da resposta replica a do Watson para o gateway não precisar mudar o

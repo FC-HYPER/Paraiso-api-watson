@@ -29,43 +29,64 @@ const iamTokenSchema = z.object({
   expires_in: z.number(),
 });
 
-/**
- * Endpoints compatíveis com OpenAI devolvem `content` como texto ou como lista
- * de partes. A instância respondeu com texto, mas as duas formas são aceitas
- * para o parse não quebrar caso o agente passe a emitir partes.
- */
-const contentSchema = z.union([
-  z.string(),
-  z.array(z.object({ type: z.string().optional(), text: z.string().optional() })),
-]);
+const contextSchema = z.record(z.unknown());
 
-const chatCompletionSchema = z
+/**
+ * Cada linha do `runs/stream` é um evento `{ id, event, data }`. Os campos de
+ * `data` variam por tipo de evento, por isso são lidos à parte, só nos eventos
+ * que usamos.
+ */
+const runEventSchema = z.object({
+  event: z.string(),
+  data: z.record(z.unknown()).default({}),
+});
+
+/** Campos que aparecem em vários eventos. Todos opcionais: nenhum evento traz todos. */
+const runIdsSchema = z
   .object({
-    id: z.string().optional(),
-    object: z.string().optional(),
-    created: z.number().optional(),
-    model: z.string().optional(),
-    choices: z
-      .array(
-        z
-          .object({
-            index: z.number().optional(),
-            finish_reason: z.string().nullish(),
-            message: z
-              .object({
-                role: z.string().optional(),
-                content: contentSchema.nullish(),
-              })
-              .optional(),
-          })
-          .passthrough(),
-      )
-      .default([]),
     thread_id: z.string().optional(),
     run_id: z.string().optional(),
     trace_id: z.string().optional(),
   })
   .passthrough();
+
+/** `message.created`: a mensagem completa do assistente, com o contexto da run. */
+const messageCreatedSchema = z
+  .object({
+    message: z
+      .object({
+        content: z
+          .array(
+            z
+              .object({ response_type: z.string().optional(), text: z.string().optional() })
+              .passthrough(),
+          )
+          .default([]),
+        context: contextSchema.nullish(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+/**
+ * `run.completed` e `done` trazem o contexto final da run. Testado em 21/10/2026:
+ * a variável gravada por tool só aparece aqui se estiver em `context_variables`
+ * do agente. Ver docs/04-pendencias.md 4.5.
+ */
+const runCompletedSchema = z.object({ context: contextSchema.nullish() }).passthrough();
+
+/**
+ * Tipos de conteúdo cujo `text` vai para o cliente. Resposta vinda da base de
+ * conhecimento chega como `conversational_search`, não como `text` (21/10/2026);
+ * o `chat/completions` achatava os dois e escondia a diferença.
+ */
+const TEXT_RESPONSE_TYPES = new Set(['text', 'conversational_search']);
+
+/** Eventos que encerram a run com falha. */
+const FAILURE_EVENTS = new Set(['run.failed', 'run.cancelled', 'run.expired', 'error']);
+
+/** O detalhe de falha vai para o log, nunca para o gateway. Limitado para não inundar o log. */
+const FAILURE_DETAIL_MAX = 500;
 
 export interface SendMessageParams {
   message: string;
@@ -77,6 +98,8 @@ export interface SendMessageParams {
 
 export interface SendMessageResult {
   reply: string;
+  /** Contexto final da run, incluindo o que as tools gravaram. */
+  context: Record<string, unknown>;
   threadId?: string;
   /** Identificam a execução no painel do Orchestrate. Vão para o log. */
   runId?: string;
@@ -89,15 +112,97 @@ export interface OrchestrateLogger {
   warn(message: string): void;
 }
 
-function extractReply(content: z.infer<typeof contentSchema> | null | undefined): string {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) {
-    return content
-      .map((part) => part.text ?? '')
-      .join('')
-      .trim();
+interface RunOutcome {
+  reply: string;
+  context: Record<string, unknown>;
+  threadId?: string;
+  runId?: string;
+  traceId?: string;
+  /** Quantos eventos válidos o stream trouxe. Zero significa resposta irreconhecível. */
+  eventCount: number;
+  /** Recebeu `run.completed`. Sem ele, a run pode ter sido cortada no meio. */
+  completed: boolean;
+  /** O agente disparou um workflow assíncrono; a resposta virá depois, pela thread. */
+  asyncFlow: boolean;
+  /** Tipos de conteúdo que não são texto e foram ignorados (formulário, opção etc.). */
+  skippedTypes: string[];
+  failure?: string;
+}
+
+/**
+ * Lê o corpo inteiro do `runs/stream`. O formato observado em 21/10/2026 é um
+ * JSON por linha; o prefixo `data:` do SSE clássico também é aceito, para o
+ * parse não quebrar se a IBM mudar o enquadramento.
+ */
+function parseRunStream(body: string): RunOutcome {
+  const outcome: RunOutcome = {
+    reply: '',
+    context: {},
+    eventCount: 0,
+    completed: false,
+    asyncFlow: false,
+    skippedTypes: [],
+  };
+  const texts: string[] = [];
+  let messageContext: Record<string, unknown> | undefined;
+  let finalContext: Record<string, unknown> | undefined;
+
+  for (const rawLine of body.split(/\r?\n/)) {
+    const line = rawLine.trim().replace(/^data:\s*/, '');
+    if (!line.startsWith('{')) continue;
+
+    let json: unknown;
+    try {
+      json = JSON.parse(line);
+    } catch {
+      continue;
+    }
+
+    const parsed = runEventSchema.safeParse(json);
+    if (!parsed.success) continue;
+
+    const { event, data } = parsed.data;
+    outcome.eventCount += 1;
+
+    const ids = runIdsSchema.safeParse(data);
+    if (ids.success) {
+      outcome.threadId ??= ids.data.thread_id;
+      outcome.runId ??= ids.data.run_id;
+      outcome.traceId ??= ids.data.trace_id;
+    }
+
+    if (event === 'message.created') {
+      const created = messageCreatedSchema.safeParse(data);
+      if (!created.success) continue;
+
+      for (const item of created.data.message.content) {
+        if (item.response_type && TEXT_RESPONSE_TYPES.has(item.response_type) && item.text) {
+          texts.push(item.text);
+        } else if (item.response_type) {
+          outcome.skippedTypes.push(item.response_type);
+        }
+      }
+      messageContext = created.data.message.context ?? messageContext;
+    } else if (event === 'run.completed' || event === 'done') {
+      outcome.completed ||= event === 'run.completed';
+      const completed = runCompletedSchema.safeParse(data);
+      if (completed.success && completed.data.context) {
+        // `run.completed` chega antes de `done` e tem precedência.
+        finalContext ??= completed.data.context;
+      }
+    } else if (event === 'flow.slot.listen') {
+      outcome.asyncFlow = true;
+    } else if (FAILURE_EVENTS.has(event)) {
+      outcome.failure = `${event}: ${JSON.stringify(data).slice(0, FAILURE_DETAIL_MAX)}`;
+    }
   }
-  return '';
+
+  // Mais de uma mensagem na mesma run vira um texto só, como na rota antiga.
+  // A Aspa aceita vários itens em `generic`; separar fica para quando houver uso.
+  outcome.reply = texts.join('\n\n').trim();
+  outcome.context = finalContext ?? messageContext ?? {};
+
+  return outcome;
 }
 
 function isTimeout(error: unknown): boolean {
@@ -177,32 +282,28 @@ export class OrchestrateAgent {
   ): Promise<SendMessageResult> {
     const call = async (token: string): Promise<Response> => {
       try {
-        return await fetch(
-          `${env.WXO_INSTANCE_URL}/v1/orchestrate/${env.WXO_AGENT_ID}/chat/completions`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              // Mantém o estado da conversa do lado do Orchestrate.
-              ...(threadId && { 'X-IBM-THREAD-ID': threadId }),
-            },
-            body: JSON.stringify({
-              // Uma mensagem só, de propósito. O Orchestrate lê apenas a última
-              // mensagem `user`: histórico no array, `role: system` e `developer`
-              // são aceitos com 200 e descartados. O histórico vem da thread.
-              messages: [{ role: 'user', content: message }],
-              // Verificado em 11/08/2026: a plataforma também ignora este campo —
-              // o agente não enxerga os valores. Mantido porque custa zero e é o
-              // canal previsto pela API. Não gaste tempo depurando por que um dado
-              // colocado aqui não chega ao agente. Ver docs/04-pendencias.md 4.3.
-              ...(context && Object.keys(context).length > 0 && { context }),
-              // Explícito: o padrão da API é true, e streaming quebraria o parse.
-              stream: false,
-            }),
-            signal: AbortSignal.timeout(env.WXO_TIMEOUT_MS),
+        // `runs/stream` em vez de `chat/completions`: é o único que devolve o
+        // contexto gravado pelas tools na própria resposta (`run.completed`).
+        // Ver docs/04-pendencias.md 4.5.
+        return await fetch(`${env.WXO_INSTANCE_URL}/v1/orchestrate/runs/stream`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-        );
+          body: JSON.stringify({
+            agent_id: env.WXO_AGENT_ID,
+            message: { role: 'user', content: message },
+            // Mantém o estado da conversa do lado do Orchestrate. Ausente na
+            // primeira mensagem: a run cria a thread e devolve o id nos eventos.
+            ...(threadId && { thread_id: threadId }),
+            // Só chega à run, e só volta dela, o que estiver em
+            // `context_variables` do agente. Ver docs/04-pendencias.md 4.5.
+            ...(context && Object.keys(context).length > 0 && { context }),
+          }),
+          // Cobre a conexão e a leitura do stream inteiro, não só a primeira resposta.
+          signal: AbortSignal.timeout(env.WXO_TIMEOUT_MS),
+        });
       } catch (error) {
         if (isTimeout(error)) {
           throw new OrchestrateError(
@@ -231,26 +332,57 @@ export class OrchestrateAgent {
       );
     }
 
-    const parsed = chatCompletionSchema.safeParse(await response.json().catch(() => null));
-
-    if (!parsed.success) {
-      throw new OrchestrateError(502, 'Unexpected watsonx Orchestrate response');
+    // O middleware espera a run terminar e responde ao gateway uma vez só; o
+    // stream é lido inteiro antes do parse. O timeout do `call` continua valendo.
+    let raw: string;
+    try {
+      raw = await response.text();
+    } catch (error) {
+      if (isTimeout(error)) {
+        throw new OrchestrateError(504, `Agent run timed out after ${env.WXO_TIMEOUT_MS}ms`);
+      }
+      throw new OrchestrateError(502, 'Network failure while reading the agent stream');
     }
 
-    const body = parsed.data;
-    const reply = extractReply(body.choices[0]?.message?.content);
+    const run = parseRunStream(raw);
+    const ids = `run_id=${run.runId ?? '-'} trace_id=${run.traceId ?? '-'}`;
 
-    if (!reply) {
-      logger?.warn(
-        `[orchestrate] empty reply - run_id=${body.run_id ?? '-'} trace_id=${body.trace_id ?? '-'}`,
+    if (run.eventCount === 0) {
+      throw new OrchestrateError(
+        502,
+        'Unexpected watsonx Orchestrate response',
+        raw.slice(0, FAILURE_DETAIL_MAX),
       );
     }
 
+    if (run.failure) {
+      throw new OrchestrateError(502, 'Agent run failed', `${ids} ${run.failure}`);
+    }
+
+    if (run.asyncFlow) {
+      logger?.warn(`[orchestrate] async flow started, reply will arrive on the thread - ${ids}`);
+    }
+
+    if (!run.completed) {
+      logger?.warn(`[orchestrate] stream ended without run.completed - ${ids}`);
+    }
+
+    if (run.skippedTypes.length > 0) {
+      logger?.warn(
+        `[orchestrate] non-text content ignored (${run.skippedTypes.join(', ')}) - ${ids}`,
+      );
+    }
+
+    if (!run.reply) {
+      logger?.warn(`[orchestrate] empty reply - ${ids}`);
+    }
+
     return {
-      reply,
-      threadId: body.thread_id ?? threadId,
-      runId: body.run_id,
-      traceId: body.trace_id,
+      reply: run.reply,
+      context: run.context,
+      threadId: run.threadId ?? threadId,
+      runId: run.runId,
+      traceId: run.traceId,
     };
   }
 }

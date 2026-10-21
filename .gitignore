@@ -11,3 +11,6 @@ analise_dialog_atual/
 *-dialog-v*.json
 # Saida do build
 build/
+
+# Cache do Python (tools do Orchestrate)
+__pycache__/

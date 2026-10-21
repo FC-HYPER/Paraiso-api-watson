@@ -14,6 +14,9 @@ context_access_enabled: true
 context_variables:
   - phone
   - habib_test
+  - distribuicao
+  - atendimento_humano
+  - handoff_summary
 restrictions: editable
 memory_enabled: false
 supported_apps: []
@@ -219,6 +222,7 @@ guidelines:
 collaborators: []
 tools:
   - write_context_test
+  - transfer_to_human
 toolkits: []
 skills: []
 plugins:

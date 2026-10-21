@@ -1,0 +1,120 @@
+from datetime import date, datetime, timedelta, timezone
+from typing import Literal
+
+from ibm_watsonx_orchestrate.agent_builder.tools import tool
+from ibm_watsonx_orchestrate.run import AgentRun, Annotations, Role, TextContent, ToolResult
+
+# Valores de `distribuicao` aprovados pela Jô em 20/10/2026 e configurados pelo André na Aspa.
+# "Financeiro" fica de fora de propósito: é contas a pagar interno.
+Destination = Literal[
+    "Boletos",
+    "Quitacao",
+    "Rescisao",
+    "Renegociacao",
+    "Transferencia",
+    "Contrato",
+    "IPTU",
+    "Escrituras",
+    "Compra",
+    "Ajuizados",
+    "Demarcacao",
+    "Reclamacao",
+]
+
+# Atendimento humano: segunda a sexta, das 9h às 18h (kb_institucional), fora os feriados abaixo.
+# Fuso fixo de -3h: o Brasil não tem horário de verão desde 2019, e o `zoneinfo` depende de
+# uma base de fusos que pode não existir no ambiente onde o Orchestrate roda a tool.
+TIMEZONE = timezone(timedelta(hours=-3), "America/Sao_Paulo")
+OPENING_HOUR = 9
+CLOSING_HOUR = 18
+
+# Dias sem atendimento humano, além de sábado e domingo. Lista a validar com a Jô e a
+# atualizar todo ano: depois de 31/12/2027 a tool volta a tratar todo dia útil como expediente.
+HOLIDAYS = {
+    date(2026, 11, 2),   # Finados
+    date(2026, 11, 20),  # Consciência Negra
+    date(2026, 12, 25),  # Natal
+    date(2027, 1, 1),    # Confraternização Universal
+    date(2027, 2, 8),    # Carnaval (ponto facultativo: confirmar com a Jô)
+    date(2027, 2, 9),    # Carnaval (ponto facultativo: confirmar com a Jô)
+    date(2027, 3, 26),   # Sexta-feira Santa
+    date(2027, 4, 21),   # Tiradentes
+    date(2027, 5, 27),   # Corpus Christi (ponto facultativo: confirmar com a Jô)
+    date(2027, 9, 7),    # Independência
+    date(2027, 9, 8),    # Nossa Senhora da Luz, feriado de Curitiba (confirmar com a Jô)
+    date(2027, 10, 12),  # Nossa Senhora Aparecida
+    date(2027, 11, 2),   # Finados
+    date(2027, 11, 15),  # Proclamação da República
+}
+
+# Textos fixos, entregues ao cliente sem o LLM reescrever. Pendentes de validação da Jô.
+TRANSFER_MESSAGE = (
+    "Vou encaminhar seu atendimento para a equipe responsável. Ela continua a conversa "
+    "por aqui mesmo e já vai ver o que falamos, então você não precisa repetir nada."
+)
+OUT_OF_HOURS_MESSAGE = (
+    "Nossa equipe atende de segunda a sexta-feira, das 9h às 18h, exceto feriados. "
+    "No momento não consigo encaminhar seu atendimento. Por favor, envie sua mensagem "
+    "novamente dentro desse horário."
+)
+
+
+def _to_customer(text: str) -> ToolResult:
+    """Texto que vai literal ao cliente (audience user), sem passar pelo raciocínio do LLM."""
+    return ToolResult(
+        content=[TextContent(text=text, annotations=Annotations(audience=[Role.USER]))]
+    )
+
+
+def _within_business_hours(now: datetime) -> bool:
+    if now.weekday() >= 5 or now.date() in HOLIDAYS:
+        return False
+    return OPENING_HOUR <= now.hour < CLOSING_HOUR
+
+
+@tool
+def transfer_to_human(context: AgentRun, destination: Destination, summary: str) -> ToolResult:
+    """Transfere o cliente, ao vivo, para a equipe humana responsável pelo assunto.
+
+    Use apenas quando as instruções mandarem encaminhar. Não use para responder perguntas
+    que a base de conhecimento cobre. A ferramenta responde ao cliente diretamente: depois
+    de chamá-la, não repita nem complemente a mensagem.
+
+    Escolha a equipe pelo assunto real do cliente:
+    - Boletos: emissão, segunda via e atualização de boleto, pagamento não compensado,
+      baixa, cobrança depois da baixa, Pix ou outro meio, negativação não retirada,
+      apoio no boleto do Tipo R.
+    - Quitacao: quitação, amortização, antecipação.
+    - Rescisao: arrependimento, rescisão, distrato, locação, encerrar o contrato para
+      trocar de lote, rescisão de contrato ajuizado.
+    - Renegociacao: renegociação de contrato não ajuizado.
+    - Transferencia: transferência de titularidade.
+    - Contrato: preparação e assinatura, segunda via de contrato, vencimento contratual,
+      documentos, cláusulas, menor de idade, metragem, invasão, água e luz, matrícula,
+      planta, alvará.
+    - IPTU: IPTU, condomínio, taxa de lixo.
+    - Escrituras: escritura, registro, ITBI, dúvidas sobre o aditivo do Tipo R.
+    - Compra: compra de lote, corretores, confirmação da compra, pós-venda, comprar
+      outro lote.
+    - Ajuizados: ajuizamento, atraso severo, Tipo K, interpelação, carta rogatória,
+      desapropriação, renegociação de contrato ajuizado.
+    - Demarcacao: demarcação e piquete.
+    - Reclamacao: reclamações, insatisfação, pedido de supervisão.
+
+    Args:
+        destination: Equipe de destino, conforme a lista acima.
+        summary: Uma frase com o que o cliente precisa, preservando a natureza real do
+            assunto, por exemplo "rescisão de contrato ajuizado". Sem CPF, telefone ou
+            outro dado pessoal.
+    """
+    if not _within_business_hours(datetime.now(TIMEZONE)):
+        return _to_customer(OUT_OF_HOURS_MESSAGE)
+
+    context.request_context.update(
+        {
+            "distribuicao": destination,
+            "atendimento_humano": True,
+            "handoff_summary": summary,
+        }
+    )
+    return _to_customer(TRANSFER_MESSAGE)

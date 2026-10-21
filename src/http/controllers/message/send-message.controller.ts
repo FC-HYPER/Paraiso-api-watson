@@ -1,4 +1,5 @@
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
+import { buildAspaControl } from '@/utils/aspa-control';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { OrchestrateAgent, OrchestrateError } from 'services/orchestrate.service';
 import { z } from 'zod';
@@ -60,8 +61,25 @@ export async function sendMessageHandler(
       `[orchestrate] thread_id=${result.threadId ?? '-'} run_id=${result.runId ?? '-'} trace_id=${result.traceId ?? '-'} context_keys=${Object.keys(result.context).join(',') || '-'}`,
     );
 
+    const control = buildAspaControl(result.context);
+    const hasControl = Object.keys(control.userDefined).length > 0;
+
+    if (control.rejected.length > 0) {
+      request.log.error(
+        `[aspa] control variables rejected: ${control.rejected.join('; ')} - run_id=${result.runId ?? '-'}`,
+      );
+    }
+
+    if (hasControl) {
+      // A equipe não é dado pessoal; o resumo pode ser, e fica fora do log.
+      request.log.info(
+        `[aspa] control=${Object.keys(control.userDefined).join(',')} distribuicao=${control.userDefined.distribuicao ?? '-'}`,
+      );
+    }
+
     // A forma da resposta replica a do Watson para o gateway não precisar mudar o
-    // parsing: o texto do agente sai em data.output.generic[0].text.
+    // parsing: o texto do agente sai em data.output.generic[0].text, e as variáveis
+    // de controle em data.context.skills["main skill"].user_defined.
     const body: MessageResponse = {
       success: true,
       data: {
@@ -70,6 +88,9 @@ export async function sendMessageHandler(
         },
         context: {
           ...(result.threadId && { thread_id: result.threadId }),
+          ...(hasControl && {
+            skills: { 'main skill': { user_defined: control.userDefined } },
+          }),
         },
       },
     };

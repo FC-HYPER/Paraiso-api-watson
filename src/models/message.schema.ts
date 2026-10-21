@@ -27,6 +27,19 @@ const messageRequestSchema = z.object({
  * descartado na serialização, sem erro nenhum. Confirmar antes com a Aspa a forma
  * exata que eles esperam. Ver docs/04-pendencias.md 4.1.
  */
+/**
+ * Variáveis de controle que a Aspa lê a cada resposta. Lista fechada: só o que
+ * estiver aqui chega ao gateway. Ver `src/utils/aspa-control.ts`.
+ */
+const aspaUserDefinedSchema = z.object({
+  distribuicao: z.string().optional(),
+  atendimento_humano: z.boolean().optional(),
+  encerrar_sessao: z.boolean().optional(),
+  menu_aspa: z.boolean().optional(),
+  // Nome provisório: combinar com o André (docs/04-pendencias.md 4.3).
+  resumo_encaminhamento: z.string().optional(),
+});
+
 const messageResponseSchema = z.object({
   success: z.boolean(),
   data: z.object({
@@ -40,6 +53,13 @@ const messageResponseSchema = z.object({
     }),
     context: z.object({
       thread_id: z.string().optional(),
+      skills: z
+        .object({
+          'main skill': z.object({
+            user_defined: aspaUserDefinedSchema,
+          }),
+        })
+        .optional(),
     }),
   }),
 });

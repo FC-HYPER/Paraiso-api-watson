@@ -32,9 +32,16 @@ Isso é diretamente relevante para o domínio de boletos. ⚠️ Mas o schema de
 seria **descartado em silêncio** pelo Fastify, exatamente o bug que apagou o campo `integration` na
 implementação antiga. Se um dia o agente devolver anexo, o schema tem que ser estendido primeiro.
 
-**Ainda pendente com eles:** habilitar homologação e apontar o gateway para
-`POST /api/orchestrate/message`, enviando o header `apikey`. O valor da chave será passado em call,
-não por e-mail.
+**Feito (confirmado em 22/10/2026):** a Aspa habilitou a homologação apontando o gateway para
+`POST /api/orchestrate/message`, com o header `apikey`. ⚠️ A homologação ainda roda a versão com
+`chat/completions`; ao publicar a migração para `runs/stream` e a tool de transferência, os testes
+pela Aspa passam a transferir de verdade dentro do expediente.
+
+**Enviado em 22/10/2026, aguardando resposta** (André ou Felipe): habilidade do
+`atendimento_humano` sem `distribuicao` e destino de `"Outros"`; se o `context` é substituído ou
+mesclado; exibição de `resumo_encaminhamento` ao atendente; habilidade sem atendente disponível;
+tratamento de `generic: [{ "text": "" }]` e para qual habilidade vai a transferência por resposta
+vazia; tratamento de 502/504 sem `generic`; formato de `user_defined.phone`.
 
 **Perguntar quando houver necessidade de anexo:** a forma exata que esperam em `attachment` — o campo
 recebe a URL direto (`"attachment": "https://…"`) ou um objeto? Sem isso, implementar anexo é chutar
@@ -146,4 +153,5 @@ Registradas para não serem reinvestigadas.
 | Onde volta a variável que a tool grava? | **Testado em 21/10/2026.** Só volta se estiver em `context_variables`; fora da lista, some sem erro (`habib_test` não voltou até ser listado). Depois de listado: no `runs/stream`, em `run.completed` → `data.context`, `done` → `data.context` e `message.created` → `data.message.context`; no `chat/completions`, **não vem na resposta**, só numa segunda chamada a `GET /v1/orchestrate/threads/{thread_id}/messages`, no `context` da última mensagem do assistente (`/v1/threads/...` dá 404). Consequência: `distribuicao`, `atendimento_humano` e `encerrar_sessao` precisam estar em `context_variables` |
 | `chat/completions` ou `runs/stream`? | **`runs/stream`, decidido em 21/10/2026.** Uma chamada por mensagem com o contexto documentado no `run.completed`, contra duas no `chat/completions` (resposta e busca na thread, por um endpoint fora da referência da API). Também aceita `environment_id` e sinaliza workflow assíncrono. Implementação em 4.2 |
 | O retorno da tool chega intacto ao cliente? | **Não.** Nos testes de 21/10, o LLM recebeu "Phone not received." e respondeu "Desculpe, não consegui processar…", e depois recebeu "Phone received…" e respondeu "Olá! Como posso ajudar você hoje?". Texto que precisa sair literal (mensagens validadas pela Jô, fora do expediente, encaminhamento) vai com `audience: user`, que pela documentação entrega o texto sem o LLM reescrever. Ainda não testado: testar na tool de transferência |
+| O texto em `generic` chega ao cliente quando a resposta também traz `distribuicao`? | **Sim. Resposta do André (Aspa):** a transferência é registrada primeiro no banco da Aspa e em seguida a mensagem é enviada ao cliente; para o atendente, a conversa só aparece depois do envio das mensagens. A mensagem de encaminhamento da `transfer_to_human` chega ao cliente e já está no histórico quando o atendente assume |
 | Por que o bug `env.APIKEY` nunca foi detectado? | `ignoreDeprecations: "6.0"` era inválido no TS 5.7 e impedia o `tsc` de rodar; o `tsup` não faz checagem de tipos. Corrigido |

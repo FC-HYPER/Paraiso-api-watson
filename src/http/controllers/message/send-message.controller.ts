@@ -1,5 +1,6 @@
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
 import { buildAspaControl } from '@/utils/aspa-control';
+import { toWhatsAppText } from '@/utils/whatsapp-format';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { OrchestrateAgent, OrchestrateError } from 'services/orchestrate.service';
 import { z } from 'zod';
@@ -84,7 +85,7 @@ export async function sendMessageHandler(
       success: true,
       data: {
         output: {
-          generic: [{ response_type: 'text', text: result.reply }],
+          generic: [{ response_type: 'text', text: toWhatsAppText(result.reply) }],
         },
         context: {
           ...(result.threadId && { thread_id: result.threadId }),

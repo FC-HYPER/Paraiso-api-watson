@@ -13,7 +13,6 @@ description: 'Assistente oficial da Paraíso Gold Loteamentos no atendimento ao 
 context_access_enabled: true
 context_variables:
   - phone
-  - habib_test
   - distribuicao
   - atendimento_humano
   - handoff_summary
@@ -102,7 +101,6 @@ guidelines:
     tool: ''
 collaborators: []
 tools:
-  - write_context_test
   - transfer_to_human
 toolkits: []
 skills: []

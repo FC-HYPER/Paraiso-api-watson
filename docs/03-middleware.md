@@ -74,6 +74,11 @@ como caixa-preta: guarda o que devolvemos e reenvia na mensagem seguinte. É por
   antiga. Antes de emitir `attachment`, estender o schema e combinar o formato com a Aspa.
 - **Ordem na Aspa:** quando a resposta traz `distribuicao`, a transferência é registrada primeiro e
   a mensagem de `generic` é enviada em seguida; o atendente já recebe a conversa com ela.
+- **O `context` é substituído a cada turno:** a Aspa reenvia exatamente o que devolvemos na última
+  resposta e não guarda nada do lado dela.
+- **`phone`** vem completo, `55` + DDD + número.
+- **`generic` vazio e resposta de erro** (4xx/5xx) fazem a Aspa tirar a conversa do agente e
+  transferir para o TIME, que hoje não tem responsável (ver pendências).
 
 ---
 
@@ -143,7 +148,7 @@ cliente real. Só passa o que estiver na lista fechada e com valor válido:
 |---|---|---|
 | `distribuicao` | `distribuicao` + `atendimento_humano: true` | Só os 12 valores aprovados (Boletos, Quitacao, Rescisao, Renegociacao, Transferencia, Contrato, IPTU, Escrituras, Compra, Ajuizados, Demarcacao, Reclamacao). Fora disso, inclusive "Financeiro", é descartado e logado como erro |
 | `handoff_summary` | `resumo_encaminhamento` | Só junto com uma `distribuicao` válida; até 500 caracteres; fora do log |
-| `atendimento_humano` sem `distribuicao` | nada | Descartado e logado: humano geral sem equipe está suspenso |
+| `atendimento_humano` sem `distribuicao` | nada | Descartado e logado. Na Aspa, iria para o TIME, que não tem responsável; suspenso até a Jô e o André definirem quem o atende |
 | `encerrar_sessao`, `menu_aspa` | iguais | Só quando `true` |
 
 > A lista de equipes existe em dois lugares: aqui e no `Destination` de

@@ -66,8 +66,8 @@ export function buildAspaControl(context: Record<string, unknown>): AspaControl 
       rejected.push(`distribuicao fora do mapa: ${JSON.stringify(distribuicao)}`);
     }
   } else if (humanRequested !== undefined) {
-    // Humano geral, sem equipe: suspenso até o André confirmar quem recebe.
-    // A Jô não quer rota genérica sem responsável.
+    // Humano geral, sem equipe: a Aspa mandaria para o TIME, que hoje não tem
+    // ninguém nem regra (André, 22/10/2026). A Jô não quer rota sem responsável.
     rejected.push('atendimento_humano sem distribuicao');
   }
 

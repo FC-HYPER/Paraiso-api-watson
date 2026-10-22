@@ -1,292 +1,276 @@
-# 3. Middleware: o que muda
+# 3. Middleware: como funciona
 
-Documento técnico. Escopo: apenas este repositório (`api-paraiso-gold`).
+Referência técnica deste repositório (`api-paraiso-gold`). Descreve o código como está; decisões e
+testes que levaram a ele estão em [02-decisoes.md](02-decisoes.md); o que está em aberto, em
+[01-pendencias.md](01-pendencias.md).
 
----
-
-## 3.1 Resumo da mudança
-
-> O middleware **perde responsabilidade de negócio e ganha responsabilidade de infraestrutura**.
-> Deixa de decidir *o que* chamar e passa a cuidar de *como* falar com a IBM com segurança e
-> resiliência. O saldo do diff é negativo — mas o código que entra é o mais delicado.
-
-| # | Antes (Assistant) | Depois (Orchestrate) | Custo |
-|---|---|---|---|
-| 1 | SDK `ibm-watson`; `IamAuthenticator` cuidava do token sozinho | REST puro, sem SDK Node oficial. Token IAM (validade 1h) gerenciado por nós: cache, renovação antecipada, retry em 401 | Código novo, sem biblioteca; ponto de falha mais caro |
-| 2 | `context` completo em round-trip pelo gateway | `thread_id`; a conversa vive no Orchestrate | Rota, schema e controller novos |
-| 3 | Middleware executava as integrações do Portal | Orchestrate executa; `habib.service.ts` sai do repo | Deleção arrasta env, dependências e Swagger |
-| 4 | Rota sem autenticação; middleware de apikey comparando variável inexistente | Rota autenticada, middleware corrigido | Falha de segurança existente hoje |
-| 5 | Sem timeout, sem retry, `payload: any`, erro da IBM repassado cru | Timeout, retry único, tipagem, erro tratado | O SDK dava parte disso de graça |
-| 6 | Log grava corpo e resposta completos (CPF, proposta) | Redaction dos campos sensíveis | LGPD |
+O middleware é a ponte entre o gateway da Aspa (WhatsApp) e o agente Habib no watsonx Orchestrate.
+Não tem regra de negócio: autentica o gateway, repassa a mensagem, lê a resposta do agente e a
+devolve no formato que a Aspa já entende.
 
 ---
 
-## 3.2 Como o Orchestrate é chamado
+## 3.1 Visão geral
 
 ```
-POST {WXO_INSTANCE_URL}/v1/orchestrate/{agent_id}/chat/completions
-Authorization: Bearer {token IAM}
-X-IBM-THREAD-ID: {thread_id}        ← opcional; mantém o estado da conversa
-Content-Type: application/json
-
-{ "messages": [{ "role": "user", "content": "..." }],
-  "context": { },                    ← contexto do usuário para o agente
-  "stream": false }
-
-→ { "id", "object", "created", "model", "choices": [...], "thread_id": "uuid" }
+Cliente → WhatsApp → Aspa (gateway)
+                       ↓  POST /api/orchestrate/message  { input, context }   · header apikey
+              Middleware (Fastify, Node 20)
+                       ↓  token IAM (cache) + POST /v1/orchestrate/runs/stream
+                 watsonx Orchestrate → agente Habib (draft)
 ```
 
-**Autenticação (SaaS / IBM Cloud):** troca-se a IAM API key por um bearer token em
-`POST https://iam.cloud.ibm.com/identity/token`
-(`grant_type=urn:ibm:params:oauth:grant-type:apikey&apikey=...`), válido por **3600 s**.
-
-### Verificado contra a instância (10/08/2026)
-
-Teste executado com um agente descartável (`habib_test`) na instância `us-south`:
-
-| Verificação | Resultado |
+| Rota | Situação |
 |---|---|
-| Troca da API key por token IAM | HTTP 200 · `expires_in: 3600` |
-| `POST .../chat/completions` com `stream: false` | HTTP 200 · ~2,9 s |
-| Header `X-IBM-THREAD-ID` mantém o histórico | **Confirmado** — o agente recuperou informação dada na mensagem anterior |
-| `thread_id` devolvido na 2ª chamada | Idêntico ao da 1ª |
+| `POST /api/orchestrate/message` | **Rota atual.** Autenticada pelo header `apikey` |
+| `POST /api/watson/message` | Rota do Watson Assistant, sem autenticação. Fica até o cutover (3.10) |
+| `GET /documentation` | Swagger. Registrado só fora de produção (`NODE_ENV != production`) |
+| `POST /api/hello-world` | Verificação simples |
 
-**Campos reais da resposta** (dois a mais do que a documentação indica):
+Arquivos principais:
 
-```
-id, object, created, model, choices, thread_id, run_id, trace_id
-```
-
-`run_id` e `trace_id` identificam a execução do lado da IBM. **O middleware deve registrá-los no
-log** — são eles que permitem correlacionar um atendimento problemático com a execução
-correspondente no painel do Orchestrate.
-
-**TTL da thread:** a mesma thread foi retomada com sucesso mais de uma hora depois — o agente ainda
-recuperou informação dada na primeira mensagem, e o `thread_id` devolvido continuou o mesmo. Não
-descarta um TTL mais longo (dias), mas cobre o padrão de uso do WhatsApp, em que o cliente retoma a
-conversa horas depois. Se um TTL for encontrado em produção, tratar a thread expirada abrindo uma
-nova de forma transparente em vez de retornar erro.
+| Arquivo | Papel |
+|---|---|
+| [`services/orchestrate.service.ts`](../services/orchestrate.service.ts) | Token IAM, chamada ao `runs/stream` e leitura dos eventos |
+| [`src/http/controllers/message/send-message.controller.ts`](../src/http/controllers/message/send-message.controller.ts) | Monta o contexto do agente, chama o service e responde ao gateway |
+| [`src/utils/aspa-control.ts`](../src/utils/aspa-control.ts) | Traduz o contexto da run para as variáveis de controle da Aspa |
+| [`src/utils/whatsapp-format.ts`](../src/utils/whatsapp-format.ts) | Converte o Markdown do agente para a marcação do WhatsApp |
+| [`src/models/message.schema.ts`](../src/models/message.schema.ts) | Schemas de entrada e saída da rota |
+| [`src/utils/redact.ts`](../src/utils/redact.ts) | Mascaramento de dado pessoal no log |
+| [`src/config/env/index.ts`](../src/config/env/index.ts) | Variáveis de ambiente, validadas na subida |
 
 ---
 
-## 3.3 Contrato com o gateway — abordagem adotada
+## 3.2 Contrato com o gateway
 
-**Decisão: manter o contrato atual e transportar o `thread_id` dentro do `context`.**
-Zero mudança do lado da Aspa.
-
-O gateway hoje já guarda o que devolvemos em `context` e reenvia na mensagem seguinte, tratando o
-conteúdo como caixa-preta. Aproveitamos esse comportamento: em vez do objeto `context` completo do
-Watson (que podia chegar a 250 KB), passa a trafegar apenas o identificador da conversa.
+O contrato é o mesmo da rota do Watson, para a Aspa não mudar o parsing. O gateway trata `context`
+como caixa-preta: guarda o que devolvemos e reenvia na mensagem seguinte. É por ali que viaja o
+`thread_id` da conversa (confirmado pela Aspa em 11/08/2026).
 
 ```jsonc
-// POST /api/watson/message — forma inalterada
-{ "input": "quero ver meus boletos",
-  "context": { "thread_id": "abc-123" } }   // ausente na primeira mensagem
+// requisição
+{ "input": "Meu contrato foi ajuizado",
+  "context": {
+    "thread_id": "f03dea36-…",                       // ausente na primeira mensagem
+    "skills": { "main skill": { "user_defined": { "phone": "5541…" } } } } }
 
-// resposta — forma inalterada
+// resposta
 { "success": true,
-  "data": { "output": { ... },
-            "context": { "thread_id": "abc-123" } } }
+  "data": {
+    "output": { "generic": [ { "response_type": "text", "text": "…" } ] },
+    "context": {
+      "thread_id": "f03dea36-…",
+      "skills": { "main skill": { "user_defined": {   // só quando há variável de controle
+        "distribuicao": "Ajuizados",
+        "atendimento_humano": true,
+        "resumo_encaminhamento": "renegociação de contrato ajuizado" } } } } } }
 ```
 
-Fluxo no middleware:
-
-1. Lê `context.thread_id` do body (pode não existir — primeira mensagem da conversa)
-2. Envia no header `X-IBM-THREAD-ID` da chamada ao Orchestrate
-3. Recebe o `thread_id` na resposta e devolve dentro de `context`
-
-**Único ponto a confirmar com a Aspa:** como ela lê o `context` na resposta. Se pega `data.context`
-de forma genérica, funciona sem nenhuma alteração do lado deles.
-
-> **Opção futura (fora do escopo atual):** um contrato novo e mais limpo — `POST /api/v1/message`
-> com `message` / `user_id` / `thread_id` no nível raiz. Exige desenvolvimento e teste conjunto com a
-> Aspa, e por isso foi adiado.
+- **A Aspa lê `data.output.generic` inteiro** e envia cada item como uma mensagem, com `text` ou
+  `attachment`. Hoje sempre vai um item só.
+- **Todo campo da resposta precisa estar declarado em
+  [`message.schema.ts`](../src/models/message.schema.ts).** O Fastify serializa pelo schema e
+  descarta em silêncio o que não estiver lá; foi assim que o campo `integration` sumiu na versão
+  antiga. Antes de emitir `attachment`, estender o schema e combinar o formato com a Aspa.
+- **Ordem na Aspa:** quando a resposta traz `distribuicao`, a transferência é registrada primeiro e
+  a mensagem de `generic` é enviada em seguida; o atendente já recebe a conversa com ela.
 
 ---
 
-## 3.4 `services/orchestrate.service.ts`
+## 3.3 Chamada ao Orchestrate
 
-Substitui [`services/watson.service.ts`](../services/watson.service.ts). Duas responsabilidades
-separadas: **gerenciar o token IAM** e **chamar o agente**.
+### Token IAM
 
-### (a) Token IAM
+A API key do Orchestrate é trocada por um bearer token em `https://iam.cloud.ibm.com/identity/token`,
+válido por 3600 s. O service guarda o token e:
 
-O `IamAuthenticator` do SDK fazia isso sozinho: buscava, cacheava, renovava antes de expirar e
-injetava o header. Sem SDK, a lógica é nossa. **Sem renovação, o bot para de responder uma hora após
-o deploy**, com `401` no log e nenhuma pista no código de negócio — e "se cura" a cada restart do
-container, o que dificulta o diagnóstico.
+- renova com **10 minutos de margem**, porque a requisição pode sair com o token válido e chegar
+  vencida;
+- compartilha uma única renovação entre requisições simultâneas (`inFlight`);
+- em `401`, força uma renovação e tenta **uma vez só**: duas falhas seguidas são credencial errada,
+  e insistir vira tempestade de requisições;
+- dá 10 s de timeout para o IAM.
 
-```ts
-private token?: string;
-private expiresAt = 0;
+Sem renovação, o bot pararia de responder uma hora depois do deploy e "se curaria" a cada restart.
 
-private async getToken(force = false): Promise<string> {
-  const SKEW_MS = 10 * 60 * 1000;              // renova aos ~50min, não aos 60
-  if (!force && this.token && Date.now() < this.expiresAt - SKEW_MS) return this.token;
+### `runs/stream`
 
-  const res = await fetch('https://iam.cloud.ibm.com/identity/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ibm:params:oauth:grant-type:apikey',
-      apikey: env.WXO_API_KEY,
-    }),
-  });
-  if (!res.ok) throw new Error(`IAM token failed: ${res.status}`);
+```
+POST {WXO_INSTANCE_URL}/v1/orchestrate/runs/stream
+Authorization: Bearer {token}
 
-  const { access_token, expires_in } = await res.json();
-  this.token = access_token;
-  this.expiresAt = Date.now() + expires_in * 1000;
-  return this.token;
-}
+{ "agent_id": "…", "message": { "role": "user", "content": "…" },
+  "thread_id": "…",              ← ausente na primeira mensagem; a run cria a thread
+  "context": { "phone": "…" } }  ← só se houver
 ```
 
-A margem de 10 min existe porque a requisição pode sair com o token válido e chegar na IBM já
-vencido (latência, fila, diferença de relógio). **Nunca trabalhar no limite.**
+O middleware lê o stream inteiro (um JSON por linha; o prefixo `data:` do SSE também é aceito) e
+só então responde ao gateway. Eventos usados:
 
-### (b) Chamada do agente
+| Evento | O que se tira dele |
+|---|---|
+| `message.created` | O texto da resposta: itens com `response_type` `text` ou `conversational_search`. Outros tipos são ignorados e logados. Várias mensagens na mesma run viram um texto só |
+| `run.completed` (ou `done`) | O contexto final da run, com o que as tools gravaram. Tem precedência sobre o contexto do `message.created` |
+| `flow.slot.listen` | Workflow assíncrono: a resposta virá depois, pela thread. Hoje só é logado |
+| `run.failed`, `run.cancelled`, `run.expired`, `error` | Falha da run: vira 502 |
+| Qualquer evento | `thread_id`, `run_id` e `trace_id`, que vão para o log |
 
-```ts
-async sendMessage(message: string, threadId?: string, context?: object) {
-  const call = async (token: string) =>
-    fetch(`${env.WXO_INSTANCE_URL}/v1/orchestrate/${env.WXO_AGENT_ID}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...(threadId && { 'X-IBM-THREAD-ID': threadId }),
-      },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: message }],
-        ...(context && Object.keys(context).length > 0 && { context }),
-        stream: false,
-      }),
-      signal: AbortSignal.timeout(env.WXO_TIMEOUT_MS ?? 30_000),
-    });
-
-  let res = await call(await this.getToken());
-  if (res.status === 401) res = await call(await this.getToken(true));  // uma vez só
-  if (!res.ok) throw new OrchestrateError(res.status, await res.text());
-
-  const body = await res.json();
-  return { reply: body.choices?.[0]?.message?.content ?? '', threadId: body.thread_id };
-}
-```
-
-**Detalhes que não podem escapar:**
-
-- **Retry uma vez só.** Duas falhas seguidas significam credencial errada, não expiração — insistir
-  transforma erro de configuração em tempestade de requisições.
-- **`stream: false` explícito** — o default da API é `true`, e streaming quebraria o parse.
-- **Timeout obrigatório.** O `fetch` do Node não tem timeout por padrão; sem ele, uma requisição
-  travada segura a conexão do WhatsApp indefinidamente.
-- **Sem `any` no payload** — o service atual usa `payload: any`, o que anula a checagem de tipos.
-- **Erro tipado** em vez de repassar o erro cru da IBM ao gateway, que vaza detalhe interno.
+**Por que `runs/stream` e não `chat/completions`:** é o único que devolve o contexto gravado pelas
+tools na própria resposta. O array `messages` do `chat/completions` não é a conversa (a conversa é a
+thread), e o middleware manda uma mensagem só, de propósito.
 
 ---
 
-## 3.5 Demais mudanças no repositório
+## 3.4 Contexto
 
-- **Criar** `src/http/routes/message.route.ts` e
-  `src/http/controllers/message/send-message.controller.ts`, registrando em
-  [`routes-mapper.ts`](../src/utils/constants/routes-mapper.ts) e
-  [`default-paths.ts`](../src/utils/constants/default-paths.ts).
-- **Criar** `src/models/message.schema.ts`. **Declarar todos os campos da resposta** no schema 200 —
-  a omissão disso foi o que descartou silenciosamente o campo `integration` na implementação atual.
-- **Corrigir** [`validate-key.middleware.ts`](../src/http/middlewares/validate-key.middleware.ts):
-  compara `env.APIKEY`, mas o schema define `API_KEY`. Aplicar via `preHandler` na rota nova.
-- **Deletar** (no cutover, não antes): `services/habib.service.ts`, `services/watson.service.ts`,
-  o controller, a rota e o schema antigos.
-- **Env** ([`src/config/env/index.ts`](../src/config/env/index.ts)): adicionar `WXO_INSTANCE_URL`,
-  `WXO_API_KEY`, `WXO_AGENT_ID`; remover `WATSON_*` e `HABIB_*`. Ler sempre via `env`, nunca
-  `process.env` direto. Atualizar `.env.exemple`.
-- **Dependências**: remover `ibm-watson` e `ibm-cloud-sdk-core` — o `fetch` nativo do Node 20 basta.
-- **Log**: adicionar redaction de CPF e proposta em
-  [`interceptor-logger.ts`](../src/http/middlewares/interceptor-logger.ts).
+### Entrada: o que vai ao agente
 
-> **Ordem de execução:** construir de forma **aditiva**. A rota nova nasce ao lado da antiga; as
-> deleções acontecem no cutover, depois que o gateway migrar. Remover o caminho atual antes disso
-> derruba o atendimento em produção.
+Só o `phone`, lido de `context.skills["main skill"].user_defined.phone` e repassado com nome plano
+(`{ "phone": "…" }`). A leitura é tolerante: contexto em outro formato não derruba a requisição, só
+deixa de repassar o dado. Dado do cliente vai pelo `context`, nunca concatenado no texto da
+mensagem (LGPD).
 
----
+**Regra do Orchestrate:** uma variável só entra na run, e só volta dela, se estiver em
+`context_variables` do agente. Hoje o Habib lista `phone`, `distribuicao`, `atendimento_humano` e
+`handoff_summary`. Variável fora da lista some sem erro.
 
-## 3.6 Dependência externa
+### Saída: o que volta à Aspa
 
-Rota, schema, correção de autenticação e limpeza podem ser feitos imediatamente. O `orchestrate.service.ts`
-precisa de uma instância do Orchestrate com agente publicado para ser validado — sem ela não há como
-testar de verdade, e os dois problemas mais caros (expiração do token IAM em 1 h e o formato real da
-resposta do agente) só aparecem contra a API real.
+[`aspa-control.ts`](../src/utils/aspa-control.ts) é a última barreira antes de a Aspa mover um
+cliente real. Só passa o que estiver na lista fechada e com valor válido:
 
-Variáveis necessárias: `WXO_INSTANCE_URL`, `WXO_API_KEY`, `WXO_AGENT_ID`.
-Obtidas em **Settings → API details** dentro da instância do Orchestrate (a API key só é exibida uma
-vez, no momento da geração).
+| Contexto da run | `user_defined` da Aspa | Regra |
+|---|---|---|
+| `distribuicao` | `distribuicao` + `atendimento_humano: true` | Só os 12 valores aprovados (Boletos, Quitacao, Rescisao, Renegociacao, Transferencia, Contrato, IPTU, Escrituras, Compra, Ajuizados, Demarcacao, Reclamacao). Fora disso, inclusive "Financeiro", é descartado e logado como erro |
+| `handoff_summary` | `resumo_encaminhamento` | Só junto com uma `distribuicao` válida; até 500 caracteres; fora do log |
+| `atendimento_humano` sem `distribuicao` | nada | Descartado e logado: humano geral sem equipe está suspenso |
+| `encerrar_sessao`, `menu_aspa` | iguais | Só quando `true` |
+
+> A lista de equipes existe em dois lugares: aqui e no `Destination` de
+> [`transfer_to_human.py`](../orchestrate/tools/transfer_to_human.py). Mudar nos dois juntos.
 
 ---
 
-## 3.7 Verificação
+## 3.5 Texto ao cliente
 
-1. `curl` direto no IAM e depois no `/chat/completions`, fora do código, provando credencial e conectividade
-2. `npm run dev` e duas requisições encadeadas — a primeira sem `thread_id`, a segunda reusando o
-   devolvido — provando que a conversa mantém contexto
-3. Requisição sem header `apikey` deve retornar 401 (hoje passa)
-4. Conferir que `reply` e `thread_id` aparecem de fato na resposta HTTP
-5. `npx tsc --noEmit` — o `npm run build` (tsup) **não** faz typecheck, e foi por isso que o bug
-   `env.APIKEY` sobreviveu. Vale adicionar ao CI.
-6. Conversa real via WhatsApp com o gateway apontando para a rota nova
+[`whatsapp-format.ts`](../src/utils/whatsapp-format.ts) converte o Markdown do agente antes de
+responder: `**texto**` e `__texto__` viram `*texto*` (negrito do WhatsApp), e títulos com `#` viram
+uma linha em negrito. Asterisco solto (`5 * 3`) não é tocado. Links em Markdown (`[texto](url)`)
+ficam como estão, porque as instructions pedem esse formato.
 
 ---
 
-## 3.8 Esteira de deploy (configurada em 11/08/2026)
+## 3.6 Erros e timeout
 
-### Ambientes
+| Situação | Resposta ao gateway |
+|---|---|
+| Sem header `apikey` ou com valor errado | 401 |
+| Corpo inválido | 4xx do Fastify |
+| Timeout na chamada ou na leitura do stream | 504, sem `generic` |
+| Falha no IAM, na rede, run com falha ou stream irreconhecível | 502, sem `generic` |
+| Erro inesperado | 500, sem `generic` |
+
+O corpo de erro é sempre `{ success: false, message }` em inglês, sem o detalhe da IBM, que vai só
+para o log.
+
+**Timeout de 120 s** (`WXO_TIMEOUT_MS`), cobrindo a conexão e a leitura do stream inteiro. O gateway
+da Aspa espera até 3 minutos e recomenda ficar dentro de 2. O agente responde em ~12 s, mas teve
+picos de até 55 s em 22/10/2026.
+
+**Resposta vazia** sai como `generic: [{ text: "" }]` e é logada como aviso. O tratamento definitivo
+(resposta vazia e o "None" que o agente pode devolver) está nas pendências.
+
+---
+
+## 3.7 Log e LGPD
+
+- O interceptor grava corpo de entrada e de saída das duas rotas com **mascaramento**: CPF e CNPJ
+  pontuados e sequências de 5 ou mais dígitos, preservando os 3 últimos para correlação. Opção de
+  menu (1, 2, 10) não é mascarada. Vale só para o log; a resposta ao gateway sai intacta.
+- `thread_id`, `run_id` e `trace_id` nunca são mascarados: são o que permite achar a execução no
+  painel do Orchestrate.
+- Do contexto, o log mostra **só as chaves**. O resumo do encaminhamento fica fora do log.
+
+---
+
+## 3.8 Variáveis de ambiente
+
+[`src/config/env/index.ts`](../src/config/env/index.ts) valida o ambiente com Zod na subida. Se
+faltar uma variável obrigatória, o contêiner morre antes de abrir a porta, e o sintoma no Code
+Engine é a revisão presa em "Implementando" com tráfego 0%. **Cadastrar no Code Engine antes de
+publicar uma imagem que exija variável nova.**
+
+| Variável | Obrigatória | Uso |
+|---|---|---|
+| `API_KEY` | sim | Valor que a Aspa envia no header `apikey` |
+| `WXO_INSTANCE_URL` | sim | URL da instância do Orchestrate (barra final é removida) |
+| `WXO_API_KEY` | sim | API key do Orchestrate, trocada pelo token IAM. Referenciar de um Secret |
+| `WXO_AGENT_ID` | sim | Id do agente Habib |
+| `WXO_TIMEOUT_MS` | não | Padrão 120000. Vazio conta como ausente. Se cadastrada no Code Engine, tem precedência |
+| `NODE_ENV` | não | Padrão `qas`. **Produção precisa de `production`**, senão o Swagger fica público |
+| `PORT` | não | Padrão 3333 |
+| `API_QAS_URL`, `API_PRD_URL` | sim | Servidores listados no Swagger |
+| `WATSON_API_KEY`, `WATSON_ASSISTANT_ID`, `WATSON_ENVIRONMENT_ID` | sim | Rota antiga; saem no cutover |
+
+`WXO_*` ficam em **Settings → API details** da instância do Orchestrate; a API key só aparece uma
+vez, ao ser gerada.
+
+---
+
+## 3.9 Esteira de deploy
 
 | Ambiente | Aplicação (Code Engine) | Imagem |
 |---|---|---|
 | Produção | `paraiso-api-ura-watson-prod` | `private.us.icr.io/watson-paraiso-api/paraiso-api:latest` |
 | Homologação | `paraiso-api-ura-watson-homolog` | `private.us.icr.io/watson-paraiso-api/paraiso-api:homolog` |
 
-**As tags separam os ambientes.** Antes desta configuração, as duas aplicações apontavam para a
-mesma imagem `:latest` — qualquer build para testar em homologação entraria em produção no próximo
-restart de instância. **Nunca publicar em `:latest`** a partir do fluxo de desenvolvimento; produção
-só muda por promoção consciente.
+**As tags separam os ambientes.** Nunca publicar em `:latest` a partir do fluxo de
+desenvolvimento: produção só muda por promoção consciente.
 
-### Build automático
-
-A aplicação de homologação tem uma compilação a partir da fonte:
+A homologação tem uma compilação a partir da fonte:
 
 | | |
 |---|---|
 | Repositório | `github.com/FC-HYPER/Paraiso-api-watson` |
 | Branch | `feat/migracao-orchestrate` |
-| Autenticação | deploy key SSH já existente no repositório (read-only) |
-| Estratégia | Dockerfile (raiz), timeout 10m, recursos `medium` |
-| Saída | `private.us.icr.io/watson-paraiso-api/paraiso-api:homolog` |
+| Autenticação | deploy key SSH (read-only) |
+| Estratégia | Dockerfile da raiz, multi-stage, `npm ci --legacy-peer-deps` com lockfile versionado |
+| Saída | `…/paraiso-api:homolog` |
 
-Ciclo de trabalho: **`git push` na branch → build → deploy em homologação**. Não requer Docker nem
-CLI da IBM na máquina do desenvolvedor.
+Ciclo: `git push` na branch e **Executar novamente a compilação** no Code Engine (não há gatilho
+automático confirmado). A imagem final leva só dependências de produção. O `--legacy-peer-deps`
+existe porque o `fastify-zod` declara peer `fastify@4` e o projeto roda o 5.
 
-Build completo leva de 3 a 6 minutos, dominado pelo `npm install --force` (o projeto não versiona
-`package-lock.json`, então as dependências são resolvidas do zero a cada build).
+**Verificação rápida:** um `404` do Fastify em `GET /` é resposta saudável: a aplicação subiu e está
+roteando.
 
-### ⚠️ Variáveis de ambiente são fail-fast
+---
 
-[`src/config/env/index.ts`](../src/config/env/index.ts) valida o ambiente com Zod e **lança exceção
-na inicialização** se faltar qualquer variável obrigatória. O contêiner morre antes de abrir a porta,
-e o sintoma no Code Engine é a revisão presa em "Implementando" com tráfego 0%.
+## 3.10 Rota antiga e cutover
 
-Foi o que aconteceu no primeiro build: a imagem anterior de homologação era anterior ao commit
-`b0ec88a`, e as variáveis `HABIB_API_URL` e `HABIB_BEARER_TOKEN` nunca haviam sido cadastradas.
+A rota do Watson continua de pé até a Aspa migrar de vez. Construímos de forma aditiva: remover o
+caminho antigo antes disso derruba o atendimento em produção. No cutover, saem juntos:
 
-**Pendência para produção:** a aplicação de produção provavelmente tem a mesma lacuna. Promover uma
-imagem nova para lá sem cadastrar essas variáveis derruba o ambiente real. Conferir antes de
-qualquer publicação em produção.
+- [`services/watson.service.ts`](../services/watson.service.ts), a rota, o controller e o schema
+  `watson`, e o registro deles em `routes-mapper.ts` e `app.ts`;
+- as variáveis `WATSON_*` do schema, do `.env.exemple` e do Code Engine;
+- as dependências `ibm-watson` e `ibm-cloud-sdk-core`.
 
-Ao adicionar `WXO_INSTANCE_URL`, `WXO_API_KEY` e `WXO_AGENT_ID` ao schema, cadastrá-las **também**
-no CodeEngine — já estão configuradas em homologação. `HABIB_BEARER_TOKEN` e `WXO_API_KEY` devem
-ser referenciadas a partir de um Secret, não como valor literal.
+---
 
-### Verificação rápida do ambiente
+## 3.11 Como testar localmente
 
-Um `404` do Fastify em `GET /` (`{"message":"Route GET:/ not found",...}`) é resposta **saudável** —
-prova que a aplicação subiu e está roteando. A raiz não existe; as rotas são `/documentation`,
-`POST /api/hello-world`, `POST /api/watson/message` e `POST /api/orchestrate/message`.
+```bash
+npx tsx src/server.ts        # sobe na porta 3333 com o .env local
+
+curl -X POST http://localhost:3333/api/orchestrate/message \
+  -H "Content-Type: application/json" -H "apikey: $API_KEY" \
+  --data-binary @corpo.json  # corpo em arquivo: acento passado inline quebra o Content-Length no Windows
+```
+
+Para seguir a mesma conversa, reenviar o `thread_id` devolvido dentro de `context`. Antes de
+commitar, rodar `npx tsc --noEmit`: o `npm run build` (tsup) não faz checagem de tipos.
+
+**O middleware local conversa com o draft do Habib**, o mesmo que a homologação usa. Um teste local
+gera conversa real no Orchestrate, e uma transferência dentro do expediente registra `distribuicao`
+de verdade no contexto.

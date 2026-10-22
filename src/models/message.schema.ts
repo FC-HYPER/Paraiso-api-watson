@@ -4,7 +4,7 @@ import { z } from 'zod';
 /**
  * Contrato preservado do `/api/watson/message`: o `thread_id` viaja dentro de
  * `context`, que o gateway da Aspa trata como caixa-preta — guarda o que
- * devolvemos e reenvia na mensagem seguinte. Ver docs/03-middleware.md 3.3.
+ * devolvemos e reenvia na mensagem seguinte. Ver docs/03-middleware.md 3.2.
  *
  * `passthrough` porque o gateway pode carregar outras chaves no contexto; elas
  * seguem para o agente. Sem isso o Fastify as descartaria.
@@ -25,7 +25,7 @@ const messageRequestSchema = z.object({
  * percorre o array inteiro e aceita `text` **ou** `attachment` (URL de download
  * desprotegida), mas um campo `attachment` adicionado só no controller seria
  * descartado na serialização, sem erro nenhum. Confirmar antes com a Aspa a forma
- * exata que eles esperam. Ver docs/04-pendencias.md 4.1.
+ * exata que eles esperam. Ver docs/01-pendencias.md 1.1.
  */
 /**
  * Variáveis de controle que a Aspa lê a cada resposta. Lista fechada: só o que
@@ -36,7 +36,7 @@ const aspaUserDefinedSchema = z.object({
   atendimento_humano: z.boolean().optional(),
   encerrar_sessao: z.boolean().optional(),
   menu_aspa: z.boolean().optional(),
-  // Nome provisório: combinar com o André (docs/04-pendencias.md 4.3).
+  // Nome provisório: combinar com o André (docs/01-pendencias.md 1.1).
   resumo_encaminhamento: z.string().optional(),
 });
 

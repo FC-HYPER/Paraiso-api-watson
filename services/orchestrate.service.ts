@@ -71,7 +71,7 @@ const messageCreatedSchema = z
 /**
  * `run.completed` e `done` trazem o contexto final da run. Testado em 21/10/2026:
  * a variável gravada por tool só aparece aqui se estiver em `context_variables`
- * do agente. Ver docs/04-pendencias.md 4.5.
+ * do agente. Ver docs/02-decisoes.md 2.2.
  */
 const runCompletedSchema = z.object({ context: contextSchema.nullish() }).passthrough();
 
@@ -284,7 +284,7 @@ export class OrchestrateAgent {
       try {
         // `runs/stream` em vez de `chat/completions`: é o único que devolve o
         // contexto gravado pelas tools na própria resposta (`run.completed`).
-        // Ver docs/04-pendencias.md 4.5.
+        // Ver docs/02-decisoes.md 2.2.
         return await fetch(`${env.WXO_INSTANCE_URL}/v1/orchestrate/runs/stream`, {
           method: 'POST',
           headers: {
@@ -298,7 +298,7 @@ export class OrchestrateAgent {
             // primeira mensagem: a run cria a thread e devolve o id nos eventos.
             ...(threadId && { thread_id: threadId }),
             // Só chega à run, e só volta dela, o que estiver em
-            // `context_variables` do agente. Ver docs/04-pendencias.md 4.5.
+            // `context_variables` do agente. Ver docs/02-decisoes.md 2.2.
             ...(context && Object.keys(context).length > 0 && { context }),
           }),
           // Cobre a conexão e a leitura do stream inteiro, não só a primeira resposta.

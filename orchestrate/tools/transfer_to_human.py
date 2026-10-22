@@ -60,12 +60,14 @@ OUT_OF_HOURS_MESSAGE = (
 HANDOFF_INSTRUCTION = (
     "Transferência registrada. Agora escreva a resposta ao cliente. Se ele pediu atendente, "
     "disse que já tentou e não conseguiu ou fez reclamação, não explique nada. Nos demais "
-    "casos, explique em até três frases a regra geral do assunto conforme a consulta desta "
-    "mensagem, sem afirmar o que vale para o caso dele. Termine dizendo que a equipe "
-    "responsável continua a conversa por aqui mesmo e já vai ver o que foi conversado, "
-    "então ele não precisa repetir nada. Não cite o nome da equipe, setores nem contatos."
+    "casos, explique em até três frases a regra geral do assunto usando somente os trechos "
+    "da base consultados nesta mensagem, sem acrescentar documentos, prazos, canais ou "
+    "procedimentos que não estejam neles e sem afirmar o que vale para o caso dele. Se a "
+    "base não foi consultada nesta mensagem ou não trouxe o assunto, não explique. Termine "
+    "dizendo que a equipe responsável continua a conversa por aqui mesmo e já vai ver o que "
+    "foi conversado, então ele não precisa repetir nada. Não cite o nome da equipe, setores "
+    "nem contatos."
 )
-
 
 
 def _to_customer(text: str) -> ToolResult:
@@ -76,9 +78,7 @@ def _to_customer(text: str) -> ToolResult:
 
 def _to_agent(text: str) -> ToolResult:
     """Texto só para o LLM (audience assistant): ele lê e escreve a resposta ao cliente."""
-    return ToolResult(
-        content=[TextContent(text=text, annotations=Annotations(audience=[Role.ASSISTANT]))]
-    )
+    return ToolResult(content=[TextContent(text=text)])
 
 def _within_business_hours(now: datetime) -> bool:
     if now.weekday() >= 5 or now.date() in HOLIDAYS:

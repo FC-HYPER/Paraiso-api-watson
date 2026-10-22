@@ -47,16 +47,25 @@ HOLIDAYS = {
     date(2027, 11, 15),  # Proclamação da República
 }
 
-# Textos fixos, entregues ao cliente sem o LLM reescrever. Pendentes de validação da Jô.
-TRANSFER_MESSAGE = (
-    "Vou encaminhar seu atendimento para a equipe responsável. Ela continua a conversa "
-    "por aqui mesmo e já vai ver o que falamos, então você não precisa repetir nada."
-)
+# Fora do expediente o texto vai literal: reescrito, o LLM poderia prometer um encaminhamento
+# que não acontece. Pendente de validação da Jô.
 OUT_OF_HOURS_MESSAGE = (
     "Nossa equipe atende de segunda a sexta-feira, das 9h às 18h, exceto feriados. "
     "No momento não consigo encaminhar seu atendimento. Por favor, envie sua mensagem "
     "novamente dentro desse horário."
 )
+
+# Na transferência, quem escreve ao cliente é o LLM, para poder explicar a regra antes de
+# avisar o encaminhamento. Este texto é instrução para ele, não vai ao cliente.
+HANDOFF_INSTRUCTION = (
+    "Transferência registrada. Agora escreva a resposta ao cliente. Se ele pediu atendente, "
+    "disse que já tentou e não conseguiu ou fez reclamação, não explique nada. Nos demais "
+    "casos, explique em até três frases a regra geral do assunto conforme a consulta desta "
+    "mensagem, sem afirmar o que vale para o caso dele. Termine dizendo que a equipe "
+    "responsável continua a conversa por aqui mesmo e já vai ver o que foi conversado, "
+    "então ele não precisa repetir nada. Não cite o nome da equipe, setores nem contatos."
+)
+
 
 
 def _to_customer(text: str) -> ToolResult:
@@ -65,6 +74,11 @@ def _to_customer(text: str) -> ToolResult:
         content=[TextContent(text=text, annotations=Annotations(audience=[Role.USER]))]
     )
 
+def _to_agent(text: str) -> ToolResult:
+    """Texto só para o LLM (audience assistant): ele lê e escreve a resposta ao cliente."""
+    return ToolResult(
+        content=[TextContent(text=text, annotations=Annotations(audience=[Role.ASSISTANT]))]
+    )
 
 def _within_business_hours(now: datetime) -> bool:
     if now.weekday() >= 5 or now.date() in HOLIDAYS:
@@ -77,8 +91,8 @@ def transfer_to_human(context: AgentRun, destination: Destination, summary: str)
     """Transfere o cliente, ao vivo, para a equipe humana responsável pelo assunto.
 
     Use apenas quando as instruções mandarem encaminhar. Não use para responder perguntas
-    que a base de conhecimento cobre. A ferramenta responde ao cliente diretamente: depois
-    de chamá-la, não repita nem complemente a mensagem.
+    que a base de conhecimento cobre. Chame antes de escrever qualquer texto ao cliente e,
+    depois, siga o que o retorno disser.
 
     Escolha a equipe pelo assunto real do cliente:
     - Boletos: emissão, segunda via e atualização de boleto, pagamento não compensado,
@@ -117,4 +131,4 @@ def transfer_to_human(context: AgentRun, destination: Destination, summary: str)
             "handoff_summary": summary,
         }
     )
-    return _to_customer(TRANSFER_MESSAGE)
+    return _to_agent(HANDOFF_INSTRUCTION)

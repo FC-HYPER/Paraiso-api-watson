@@ -29,13 +29,13 @@ export const envSchema = z.object({
   // O preprocess trata variável cadastrada com valor vazio, que seria convertida
   // para 0 e abortaria toda requisição imediatamente.
   //
-  // 60s: o gateway da Aspa espera 3 minutos e recomenda ficar dentro de 2, então
-  // somos o elo mais curto da cadeia. Hoje o agente responde em 2 a 4 segundos, mas
-  // isso vai subir quando ele passar a chamar tools — e abortar aos 30s uma
-  // requisição que o gateway ainda esperaria por dois minutos seria desperdício.
+  // 120s: o gateway da Aspa espera 3 minutos e recomenda ficar dentro de 2. Com o
+  // modelo frontier, o agente responde em ~12s, mas teve picos de até 55s em
+  // 22/10/2026 e um passou dos 60s — abortar uma run que o gateway ainda
+  // esperaria vira erro para o cliente à toa.
   WXO_TIMEOUT_MS: z.preprocess(
     (value) => (value === '' || value === undefined ? undefined : value),
-    z.coerce.number().int().positive().default(60_000),
+    z.coerce.number().int().positive().default(120_000),
   ),
 });
 

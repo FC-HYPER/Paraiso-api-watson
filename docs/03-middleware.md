@@ -78,7 +78,7 @@ como caixa-preta: guarda o que devolvemos e reenvia na mensagem seguinte. É por
   resposta e não guarda nada do lado dela.
 - **`phone`** vem completo, `55` + DDD + número.
 - **`generic` vazio e resposta de erro** (4xx/5xx) fazem a Aspa tirar a conversa do agente e
-  transferir para o TIME, que hoje não tem responsável (ver pendências).
+  transferir para o TIME, que funciona como fila geral: aparece para todos até alguém assumir.
 
 ---
 
@@ -147,8 +147,8 @@ cliente real. Só passa o que estiver na lista fechada e com valor válido:
 | Contexto da run | `user_defined` da Aspa | Regra |
 |---|---|---|
 | `distribuicao` | `distribuicao` + `atendimento_humano: true` | Só os 12 valores aprovados (Boletos, Quitacao, Rescisao, Renegociacao, Transferencia, Contrato, IPTU, Escrituras, Compra, Ajuizados, Demarcacao, Reclamacao). Fora disso, inclusive "Financeiro", é descartado e logado como erro |
-| `handoff_summary` | `resumo_encaminhamento` | Só junto com uma `distribuicao` válida; até 500 caracteres; fora do log |
-| `atendimento_humano` sem `distribuicao` | nada | Descartado e logado. Na Aspa, iria para o TIME, que não tem responsável; suspenso até a Jô e o André definirem quem o atende |
+| `handoff_summary` | `resumo_encaminhamento` | Só junto com uma transferência (equipe válida ou fila geral); até 500 caracteres; fora do log |
+| `atendimento_humano` sem `distribuicao` | `atendimento_humano: true` | Fila geral: a Aspa manda para o TIME. É o destino `Geral` da `transfer_to_human` |
 | `encerrar_sessao`, `menu_aspa` | iguais | Só quando `true` |
 
 > A lista de equipes existe em dois lugares: aqui e no `Destination` de
@@ -182,8 +182,7 @@ para o log.
 da Aspa espera até 3 minutos e recomenda ficar dentro de 2. O agente responde em ~12 s, mas teve
 picos de até 55 s em 22/10/2026.
 
-**Resposta vazia** sai como `generic: [{ text: "" }]` e é logada como aviso. O tratamento definitivo
-(resposta vazia e o "None" que o agente pode devolver) está nas pendências.
+**Resposta vazia ou "None"** (o agente às vezes devolve "None" em vez de chamar uma tool, problema conhecido da IBM) sai como `generic: []`, e a Aspa transfere para o TIME, a fila geral. Gera um aviso no log.
 
 ---
 

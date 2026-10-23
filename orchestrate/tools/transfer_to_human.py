@@ -5,7 +5,9 @@ from ibm_watsonx_orchestrate.agent_builder.tools import tool
 from ibm_watsonx_orchestrate.run import AgentRun, Annotations, Role, TextContent, ToolResult
 
 # Valores de `distribuicao` aprovados pela Jô em 20/10/2026 e configurados pelo André na Aspa.
-# "Financeiro" fica de fora de propósito: é contas a pagar interno.
+# "Financeiro" fica de fora de propósito: é contas a pagar interno. "Geral" não é equipe: é o
+# TIME da Aspa, a fila que todos veem (23/10/2026), e não grava `distribuicao`.
+GENERAL = "Geral"
 Destination = Literal[
     "Boletos",
     "Quitacao",
@@ -19,6 +21,7 @@ Destination = Literal[
     "Ajuizados",
     "Demarcacao",
     "Reclamacao",
+    "Geral"
 ]
 
 # Atendimento humano: segunda a sexta, das 9h às 18h (kb_institucional), fora os feriados abaixo.
@@ -104,18 +107,21 @@ def transfer_to_human(context: AgentRun, destination: Destination, summary: str)
     - Rescisao: arrependimento, rescisão, distrato, locação, encerrar o contrato para
       trocar de lote, rescisão de contrato ajuizado.
     - Renegociacao: renegociação de contrato não ajuizado.
-    - Transferencia: transferência de titularidade.
+    - Transferencia: transferência de titularidade, falecimento do titular.
     - Contrato: preparação e assinatura, segunda via de contrato, vencimento contratual,
       documentos, cláusulas, menor de idade, metragem, invasão, água e luz, matrícula,
-      planta, alvará.
+      planta, alvará, atualização cadastral que não se resolve pelo portal.
     - IPTU: IPTU, condomínio, taxa de lixo.
-    - Escrituras: escritura, registro, ITBI, dúvidas sobre o aditivo do Tipo R.
+    - Escrituras: escritura, registro, ITBI, ITCMD, dúvidas sobre o aditivo do Tipo R.
     - Compra: compra de lote, corretores, confirmação da compra, pós-venda, comprar
       outro lote.
     - Ajuizados: ajuizamento, atraso severo, Tipo K, interpelação, carta rogatória,
       desapropriação, renegociação de contrato ajuizado.
     - Demarcacao: demarcação e piquete.
     - Reclamacao: reclamações, insatisfação, pedido de supervisão.
+    - Geral: o que não se encaixa em nenhuma equipe acima, como pedido relacionado à
+      LGPD e dano ambiental ou movimentação de terra no lote, e pedido de atendente
+      quando o cliente não diz o assunto.
 
     Args:
         destination: Equipe de destino, conforme a lista acima.
@@ -126,11 +132,10 @@ def transfer_to_human(context: AgentRun, destination: Destination, summary: str)
     if not _within_business_hours(datetime.now(TIMEZONE)):
         return _to_customer(OUT_OF_HOURS_MESSAGE)
 
-    context.request_context.update(
-        {
-            "distribuicao": destination,
-            "atendimento_humano": True,
-            "handoff_summary": summary,
-        }
-    )
+    handoff = {"atendimento_humano": True, "handoff_summary": summary}
+    # Sem equipe, a Aspa manda para o TIME, a fila geral.
+    if destination != GENERAL:
+        handoff["distribuicao"] = destination
+    context.request_context.update(handoff)
+
     return _to_agent(HANDOFF_INSTRUCTION)

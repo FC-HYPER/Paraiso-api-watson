@@ -57,18 +57,18 @@ export function buildAspaControl(context: Record<string, unknown>): AspaControl 
       // A transferência sempre leva os dois juntos, como o Dialog faz hoje.
       userDefined.distribuicao = distribuicao;
       userDefined.atendimento_humano = true;
-
-      const summary = context.handoff_summary;
-      if (typeof summary === 'string' && summary.trim()) {
-        userDefined.resumo_encaminhamento = summary.trim().slice(0, SUMMARY_MAX);
-      }
     } else {
       rejected.push(`distribuicao fora do mapa: ${JSON.stringify(distribuicao)}`);
     }
-  } else if (humanRequested !== undefined) {
-    // Humano geral, sem equipe: a Aspa mandaria para o TIME, que hoje não tem
-    // ninguém nem regra (André, 22/10/2026). A Jô não quer rota sem responsável.
-    rejected.push('atendimento_humano sem distribuicao');
+  } else if (humanRequested === true) {
+    // Fila geral: sem equipe, a Aspa manda para o TIME, que aparece para todos até
+    // alguém assumir (André, 22/10/2026). Adotado como geral em 23/10/2026.
+    userDefined.atendimento_humano = true;
+  }
+
+  const summary = context.handoff_summary;
+  if (userDefined.atendimento_humano && typeof summary === 'string' && summary.trim()) {
+    userDefined.resumo_encaminhamento = summary.trim().slice(0, SUMMARY_MAX);
   }
 
   if (context.encerrar_sessao === true) userDefined.encerrar_sessao = true;

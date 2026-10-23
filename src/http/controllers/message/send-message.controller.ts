@@ -78,6 +78,18 @@ export async function sendMessageHandler(
       );
     }
 
+    // Resposta vazia e o "None" que o agente às vezes devolve no lugar de chamar
+    // uma tool (problema conhecido da IBM) não vão ao cliente: `generic` vazio faz
+    // a Aspa transferir para o TIME, a fila geral (André, 22/10/2026).
+    const text = toWhatsAppText(result.reply).trim();
+    const noReply = text === '' || text === 'None';
+
+    if (noReply) {
+      request.log.warn(
+        `[orchestrate] no reply (${text || 'empty'}), sending empty generic - run_id=${result.runId ?? '-'}`,
+      );
+    }
+
     // A forma da resposta replica a do Watson para o gateway não precisar mudar o
     // parsing: o texto do agente sai em data.output.generic[0].text, e as variáveis
     // de controle em data.context.skills["main skill"].user_defined.
@@ -85,7 +97,7 @@ export async function sendMessageHandler(
       success: true,
       data: {
         output: {
-          generic: [{ response_type: 'text', text: toWhatsAppText(result.reply) }],
+          generic: noReply ? [] : [{ response_type: 'text', text }],
         },
         context: {
           ...(result.threadId && { thread_id: result.threadId }),

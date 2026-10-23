@@ -1,5 +1,6 @@
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
 import { buildAspaControl } from '@/utils/aspa-control';
+import { stripHandoffOffer } from '@/utils/handoff-offer';
 import { buildTransferFallback } from '@/utils/transfer-fallback';
 import { toWhatsAppText } from '@/utils/whatsapp-format';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -95,7 +96,18 @@ export async function sendMessageHandler(
     // Resposta vazia e o "None" que o agente às vezes devolve no lugar de chamar
     // uma tool (problema conhecido da IBM) não vão ao cliente: `generic` vazio faz
     // a Aspa transferir para o TIME, a fila geral (André, 22/10/2026).
-    const text = fallback?.text ?? toWhatsAppText(result.reply).trim();
+    let text = fallback?.text ?? toWhatsAppText(result.reply).trim();
+
+    // Sem transferência, a oferta de encaminhar não vai ao cliente: o Habib encaminha
+    // ou não encaminha. Ver `src/utils/handoff-offer.ts`.
+    if (!fallback && !control.userDefined.atendimento_humano) {
+      const offer = stripHandoffOffer(text);
+      if (offer.removed) {
+        request.log.warn(`[orchestrate] handoff offer removed - run_id=${result.runId ?? '-'}`);
+        text = offer.text;
+      }
+    }
+
     const noReply = text === '' || text === 'None';
 
     if (noReply) {

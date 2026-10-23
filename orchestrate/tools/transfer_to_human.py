@@ -65,8 +65,10 @@ HANDOFF_INSTRUCTION = (
     "procedimentos que não estejam neles e sem afirmar o que vale para o caso dele. Se a "
     "base não foi consultada nesta mensagem ou não trouxe o assunto, não explique. Termine "
     "dizendo que a equipe responsável continua a conversa por aqui mesmo e já vai ver o que "
-    "foi conversado, então ele não precisa repetir nada. Não cite o nome da equipe, setores "
-    "nem contatos."
+    "foi conversado, então ele não precisa repetir nada. Se o cliente ainda não informou o "
+    "CPF/CNPJ ou o número do contrato nesta conversa, peça na última frase que ele envie, para "
+    "a equipe já receber o atendimento identificado. Não cite o nome da equipe, setores nem "
+    "contatos."
 )
 
 

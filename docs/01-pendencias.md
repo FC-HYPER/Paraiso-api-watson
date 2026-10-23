@@ -16,7 +16,6 @@ daqui e o que ensinou vai para lá.
 | Webhook `/watson/solicitacao` | O dialog do Watson chama um serviço em Google Cloud Run que envia e-mail, CPF/CNPJ, proposta, telefone e tipo de fatura. Levantar quem mantém e o que faz: precisará virar tool no Orchestrate |
 | **Jô: datas sem atendimento humano** | Validar a lista `HOLIDAYS` da tool. Em aberto: Carnaval e Corpus Christi (ponto facultativo); 8 de setembro (feriado só de Curitiba); 24 e 31 de dezembro |
 | **Jô: texto de fora do expediente** | `OUT_OF_HOURS_MESSAGE` em [`transfer_to_human.py`](../orchestrate/tools/transfer_to_human.py), o único texto fixo da transferência |
-| **Jô e André: identificação do cliente antes da transferência** | O bot do Watson só transferia depois de coletar CPF/CNPJ ou contrato, para o atendente não receber cliente sem identificação. A `transfer_to_human` transfere só com o telefone que a Aspa manda. Definir se a Aspa identifica pelo telefone ou se o Habib precisa pedir CPF ou contrato antes (nesse caso, pelo contexto, nunca pelo texto). **Antes do teste ponta a ponta** |
 | Jô: equipe de dois cenários sem destino | Pedido relacionado à LGPD e dano ambiental ou movimentação de terra no lote (ver 1.3, docstring) |
 | Jô: texto da guideline de ofensa | Confirmar se tem origem validada ou foi de teste, antes de virar texto literal na tool (1.3) |
 | Jô: nomes de colaboradores no KB | O `kb_institucional` diz que "Mariane e Mário realizam o atendimento telefônico", e as instructions proíbem citar colaboradores. Manter ou trocar por "a equipe de atendimento telefônico" |

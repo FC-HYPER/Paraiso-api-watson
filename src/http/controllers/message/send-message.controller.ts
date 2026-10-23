@@ -1,5 +1,6 @@
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
 import { buildAspaControl } from '@/utils/aspa-control';
+import { buildTransferFallback } from '@/utils/transfer-fallback';
 import { toWhatsAppText } from '@/utils/whatsapp-format';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { OrchestrateAgent, OrchestrateError } from 'services/orchestrate.service';
@@ -62,7 +63,20 @@ export async function sendMessageHandler(
       `[orchestrate] thread_id=${result.threadId ?? '-'} run_id=${result.runId ?? '-'} trace_id=${result.traceId ?? '-'} context_keys=${Object.keys(result.context).join(',') || '-'}`,
     );
 
-    const control = buildAspaControl(result.context);
+    // A tool de transferência não executou: o middleware faz a transferência que ela
+    // faria, e o texto que o LLM improvisou ("não consegui transferir", contatos) não
+    // vai ao cliente. Ver `src/utils/transfer-fallback.ts`.
+    const fallback = result.failedTransfer
+      ? buildTransferFallback(result.failedTransfer, new Date())
+      : undefined;
+
+    if (fallback) {
+      request.log.warn(
+        `[orchestrate] transfer done by middleware (${fallback.context.atendimento_humano ? 'handoff' : 'out of hours'}) - run_id=${result.runId ?? '-'}`,
+      );
+    }
+
+    const control = buildAspaControl(fallback?.context ?? result.context);
     const hasControl = Object.keys(control.userDefined).length > 0;
 
     if (control.rejected.length > 0) {
@@ -81,7 +95,7 @@ export async function sendMessageHandler(
     // Resposta vazia e o "None" que o agente às vezes devolve no lugar de chamar
     // uma tool (problema conhecido da IBM) não vão ao cliente: `generic` vazio faz
     // a Aspa transferir para o TIME, a fila geral (André, 22/10/2026).
-    const text = toWhatsAppText(result.reply).trim();
+    const text = fallback?.text ?? toWhatsAppText(result.reply).trim();
     const noReply = text === '' || text === 'None';
 
     if (noReply) {

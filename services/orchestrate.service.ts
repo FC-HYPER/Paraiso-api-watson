@@ -1,4 +1,5 @@
 import { env } from '@/config/env';
+import type { TransferArgs } from '@/utils/transfer-fallback';
 import { z } from 'zod';
 
 const IAM_TOKEN_URL = 'https://iam.cloud.ibm.com/identity/token';
@@ -76,6 +77,43 @@ const messageCreatedSchema = z
 const runCompletedSchema = z.object({ context: contextSchema.nullish() }).passthrough();
 
 /**
+ * `run.step.delta`: passos da run, entre eles a chamada de tool (`tool_calls`) e o
+ * retorno dela (`tool_response`, com o `name` da tool). Formato observado em 23/10/2026.
+ */
+const runStepDeltaSchema = z
+  .object({
+    delta: z
+      .object({
+        step_details: z
+          .array(
+            z
+              .object({
+                type: z.string().optional(),
+                name: z.string().optional(),
+                content: z.unknown().optional(),
+                tool_calls: z
+                  .array(
+                    z
+                      .object({
+                        name: z.string().optional(),
+                        args: z.record(z.unknown()).optional(),
+                      })
+                      .passthrough(),
+                  )
+                  .optional(),
+              })
+              .passthrough(),
+          )
+          .default([]),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+
+/** Tool de transferência do Habib (`orchestrate/tools/transfer_to_human.py`). */
+const TRANSFER_TOOL = 'transfer_to_human';
+
+/**
  * Tipos de conteúdo cujo `text` vai para o cliente. Resposta vinda da base de
  * conhecimento chega como `conversational_search`, não como `text` (21/10/2026);
  * o `chat/completions` achatava os dois e escondia a diferença.
@@ -104,6 +142,11 @@ export interface SendMessageResult {
   /** Identificam a execução no painel do Orchestrate. Vão para o log. */
   runId?: string;
   traceId?: string;
+  /**
+   * Argumentos da tool de transferência que foi chamada e não executou. Ausente
+   * quando não houve falha. Ver `RunOutcome.failedTransfer`.
+   */
+  failedTransfer?: TransferArgs;
 }
 
 /** Subconjunto do logger do Fastify usado aqui. */
@@ -127,6 +170,16 @@ interface RunOutcome {
   /** Tipos de conteúdo que não são texto e foram ignorados (formulário, opção etc.). */
   skippedTypes: string[];
   failure?: string;
+  /**
+   * Presente quando a `transfer_to_human` foi chamada e nenhum retorno dela veio da
+   * própria tool; guarda os argumentos da última chamada. O retorno da tool chega
+   * como lista de conteúdos; quando o executor de tools da IBM falha, chega uma
+   * string de erro (`failed to execute function: … i/o timeout`, 23/10/2026), e o
+   * LLM improvisa uma resposta sem transferir.
+   */
+  failedTransfer?: TransferArgs;
+  /** Retorno de erro da tool de transferência, para o log. */
+  transferError?: string;
 }
 
 /**
@@ -146,6 +199,8 @@ function parseRunStream(body: string): RunOutcome {
   const texts: string[] = [];
   let messageContext: Record<string, unknown> | undefined;
   let finalContext: Record<string, unknown> | undefined;
+  let transferCall: TransferArgs | undefined;
+  let transferExecuted = false;
 
   for (const rawLine of body.split(/\r?\n/)) {
     const line = rawLine.trim().replace(/^data:\s*/, '');
@@ -190,6 +245,22 @@ function parseRunStream(body: string): RunOutcome {
         // `run.completed` chega antes de `done` e tem precedência.
         finalContext ??= completed.data.context;
       }
+    } else if (event === 'run.step.delta') {
+      const step = runStepDeltaSchema.safeParse(data);
+      if (!step.success) continue;
+
+      for (const detail of step.data.delta.step_details) {
+        for (const call of detail.tool_calls ?? []) {
+          if (call.name === TRANSFER_TOOL) transferCall = call.args ?? {};
+        }
+        if (detail.type === 'tool_response' && detail.name === TRANSFER_TOOL) {
+          if (Array.isArray(detail.content)) {
+            transferExecuted = true;
+          } else {
+            outcome.transferError = String(detail.content).slice(0, FAILURE_DETAIL_MAX);
+          }
+        }
+      }
     } else if (event === 'flow.slot.listen') {
       outcome.asyncFlow = true;
     } else if (FAILURE_EVENTS.has(event)) {
@@ -201,14 +272,14 @@ function parseRunStream(body: string): RunOutcome {
   // A Aspa aceita vários itens em `generic`; separar fica para quando houver uso.
   outcome.reply = texts.join('\n\n').trim();
   outcome.context = finalContext ?? messageContext ?? {};
+  // Uma nova tentativa do LLM que execute conta como transferência feita.
+  if (transferCall && !transferExecuted) outcome.failedTransfer = transferCall;
 
   return outcome;
 }
 
 function isTimeout(error: unknown): boolean {
-  return (
-    error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
-  );
+  return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
 }
 
 export class OrchestrateAgent {
@@ -306,10 +377,7 @@ export class OrchestrateAgent {
         });
       } catch (error) {
         if (isTimeout(error)) {
-          throw new OrchestrateError(
-            504,
-            `Agent request timed out after ${env.WXO_TIMEOUT_MS}ms`,
-          );
+          throw new OrchestrateError(504, `Agent request timed out after ${env.WXO_TIMEOUT_MS}ms`);
         }
         throw new OrchestrateError(502, 'Network failure while calling the agent');
       }
@@ -377,12 +445,19 @@ export class OrchestrateAgent {
       logger?.warn(`[orchestrate] empty reply - ${ids}`);
     }
 
+    if (run.failedTransfer) {
+      logger?.warn(
+        `[orchestrate] ${TRANSFER_TOOL} did not execute - ${ids} ${run.transferError ?? 'no tool response'}`,
+      );
+    }
+
     return {
       reply: run.reply,
       context: run.context,
       threadId: run.threadId ?? threadId,
       runId: run.runId,
       traceId: run.traceId,
+      failedTransfer: run.failedTransfer,
     };
   }
 }

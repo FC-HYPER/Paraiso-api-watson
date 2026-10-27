@@ -1,0 +1,760 @@
+[
+  {
+    "id": "boletos_segunda_via",
+    "kb": "boletos_carnes",
+    "source": "AUTOATENDIMENTO; KB Consulta e emissão",
+    "turns": [
+      "Preciso da segunda via do boleto"
+    ],
+    "transfer": null,
+    "include": [
+      "portaldocliente\\.paraisogold\\.com\\.br/portal/login"
+    ]
+  },
+  {
+    "id": "boletos_ja_tentei",
+    "kb": "boletos_carnes",
+    "source": "ENCAMINHE SEMPRE: já tentou e não conseguiu",
+    "turns": [
+      "Já tentei emitir o boleto pelo site várias vezes e não consegui"
+    ],
+    "transfer": "Boletos"
+  },
+  {
+    "id": "boletos_sms_pdf",
+    "kb": "boletos_carnes",
+    "source": "KB Boleto recebido por SMS",
+    "turns": [
+      "Recebi o boleto por SMS mas o arquivo não abre no meu celular"
+    ],
+    "transfer": null,
+    "include": [
+      "PDF"
+    ]
+  },
+  {
+    "id": "boletos_compensacao_recente",
+    "kb": "boletos_carnes",
+    "source": "KB Compensação bancária (até 24 h)",
+    "turns": [
+      "Paguei o boleto por Pix hoje de manhã e ainda aparece como pendente"
+    ],
+    "transfer": null,
+    "include": [
+      "24 horas"
+    ]
+  },
+  {
+    "id": "boletos_baixa_atrasada",
+    "kb": "boletos_carnes",
+    "source": "KB Análise de pagamento; tool Boletos: pagamento não compensado",
+    "turns": [
+      "Paguei o boleto há uma semana e até hoje não deu baixa"
+    ],
+    "transfer": "Boletos"
+  },
+  {
+    "id": "boletos_pago_outro_meio",
+    "kb": "boletos_carnes",
+    "source": "tool Boletos: Pix ou outro meio",
+    "turns": [
+      "Fiz uma transferência Pix direto para a conta de vocês em vez de pagar o boleto"
+    ],
+    "transfer": "Boletos"
+  },
+  {
+    "id": "boletos_numero_contrato",
+    "kb": "boletos_carnes",
+    "source": "KB Localização do número do contrato (frase única, 27/10)",
+    "turns": [
+      "Onde encontro o número do meu contrato?"
+    ],
+    "transfer": null,
+    "include": [
+      "Prop"
+    ]
+  },
+  {
+    "id": "quitacao_prazo",
+    "kb": "quitacao",
+    "source": "QUANDO NÃO ENCAMINHAR: prazos",
+    "turns": [
+      "Quanto tempo demora o cálculo da quitação?"
+    ],
+    "transfer": null,
+    "include": [
+      "7 dias úteis|sete dias úteis"
+    ]
+  },
+  {
+    "id": "quitacao_valor",
+    "kb": "quitacao",
+    "source": "ENCAMINHE SEMPRE: valor que depende de cálculo",
+    "turns": [
+      "Quero saber o valor para quitar meu lote"
+    ],
+    "transfer": "Quitacao"
+  },
+  {
+    "id": "quitacao_desconto",
+    "kb": "quitacao",
+    "source": "QUANDO NÃO ENCAMINHAR: desconto extra na quitação",
+    "turns": [
+      "Se eu quitar à vista, vocês dão um desconto extra?"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "quitacao_fgts",
+    "kb": "quitacao",
+    "source": "KB FGTS",
+    "turns": [
+      "Posso usar meu FGTS para quitar o lote?"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "amortizacao_regra",
+    "kb": "amortizacao",
+    "source": "QUANDO NÃO ENCAMINHAR: dúvida sobre regras",
+    "turns": [
+      "Como funciona a amortização do contrato?"
+    ],
+    "transfer": null,
+    "include": [
+      "20%"
+    ]
+  },
+  {
+    "id": "amortizacao_pedido",
+    "kb": "amortizacao",
+    "source": "KB: o pedido deve ser encaminhado; tool Quitacao: amortização",
+    "turns": [
+      "Quero amortizar meu saldo devedor, tenho dinheiro para pagar uma parte"
+    ],
+    "transfer": "Quitacao"
+  },
+  {
+    "id": "antecipacao_regra",
+    "kb": "antecipacao",
+    "source": "QUANDO NÃO ENCAMINHAR: dúvida sobre regras",
+    "turns": [
+      "Como funciona a antecipação de parcelas?"
+    ],
+    "transfer": null,
+    "include": [
+      "12 parcelas"
+    ]
+  },
+  {
+    "id": "antecipacao_pedido",
+    "kb": "antecipacao",
+    "source": "KB: o pedido é encaminhado; tool Quitacao: antecipação",
+    "turns": [
+      "Quero antecipar 12 parcelas do meu contrato"
+    ],
+    "transfer": "Quitacao"
+  },
+  {
+    "id": "rescisao_pedido",
+    "kb": "rescisao",
+    "source": "tool Rescisao",
+    "turns": [
+      "Quero rescindir meu contrato"
+    ],
+    "transfer": "Rescisao"
+  },
+  {
+    "id": "rescisao_arrependimento",
+    "kb": "rescisao",
+    "source": "KB: dentro do prazo, encaminhado imediatamente",
+    "turns": [
+      "Comprei o lote num estande há 3 dias e me arrependi, quero desistir"
+    ],
+    "transfer": "Rescisao"
+  },
+  {
+    "id": "rescisao_troca_lote",
+    "kb": "rescisao",
+    "source": "KB Troca de lote: só explica",
+    "turns": [
+      "Posso trocar meu lote por outro?"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "renegociacao_pedido",
+    "kb": "renegociacao",
+    "source": "ENCAMINHE SEMPRE: pedir renegociação",
+    "turns": [
+      "Quero renegociar minhas parcelas atrasadas"
+    ],
+    "transfer": "Renegociacao"
+  },
+  {
+    "id": "renegociacao_como",
+    "kb": "renegociacao",
+    "source": "KB renegociação: dúvida só explica (decisão 26/10)",
+    "turns": [
+      "Como funciona a renegociação?"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "renegociacao_sem_condicao",
+    "kb": "renegociacao",
+    "source": "QUANDO NÃO ENCAMINHAR: cliente informa que não cumpre as condições",
+    "turns": [
+      "Tenho só 10 parcelas pagas e 2 atrasadas, quero renegociar"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "encargos_retirada",
+    "kb": "renegociacao",
+    "source": "ENCARGOS; QUANDO NÃO ENCAMINHAR",
+    "turns": [
+      "Quero que tirem os juros das minhas parcelas atrasadas"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "financeiro_atraso",
+    "kb": "contrato_financeiro",
+    "source": "KB Atraso no pagamento",
+    "turns": [
+      "O que acontece se eu atrasar uma parcela?"
+    ],
+    "transfer": null,
+    "include": [
+      "multa"
+    ]
+  },
+  {
+    "id": "financeiro_negativacao",
+    "kb": "contrato_financeiro",
+    "source": "KB Regularização da negativação; tool Boletos",
+    "turns": [
+      "Já paguei tudo há duas semanas e meu nome continua negativado"
+    ],
+    "transfer": "Boletos"
+  },
+  {
+    "id": "financeiro_imposto_renda",
+    "kb": "contrato_financeiro",
+    "source": "KB Imposto de Renda",
+    "turns": [
+      "Onde pego o informe de imposto de renda?"
+    ],
+    "transfer": null,
+    "include": [
+      "portaldocliente\\.paraisogold\\.com\\.br/portal/login",
+      "Informe de IR"
+    ]
+  },
+  {
+    "id": "transferencia_regra",
+    "kb": "transferencia",
+    "source": "AUTOATENDIMENTO",
+    "turns": [
+      "Como funciona a transferência de titularidade?"
+    ],
+    "transfer": null,
+    "include": [
+      "transferencia\\.paraisogold\\.com\\.br"
+    ]
+  },
+  {
+    "id": "transferencia_taxa",
+    "kb": "transferencia",
+    "source": "VALORES E CÁLCULOS: não informar a taxa",
+    "turns": [
+      "Qual é o valor da taxa de transferência de titularidade?"
+    ],
+    "transfer": null,
+    "exclude": [
+      "R\\$"
+    ]
+  },
+  {
+    "id": "transferencia_falecimento",
+    "kb": "transferencia",
+    "source": "tool Transferencia: falecimento do titular",
+    "turns": [
+      "Meu pai era o titular do contrato e faleceu, o que eu faço?"
+    ],
+    "transfer": "Transferencia"
+  },
+  {
+    "id": "contrato_segunda_via",
+    "kb": "contrato_juridico",
+    "source": "KB Segunda via do contrato; tool Contrato (condicional)",
+    "turns": [
+      "Como baixo a segunda via do meu contrato?"
+    ],
+    "transfer": null,
+    "include": [
+      "portaldocliente\\.paraisogold\\.com\\.br/portal/login"
+    ]
+  },
+  {
+    "id": "contrato_situacao",
+    "kb": "-",
+    "source": "ENCAMINHE SEMPRE: situação do contrato",
+    "turns": [
+      "Qual é a situação do meu contrato?"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "contrato_vencimento",
+    "kb": "contrato_atendimento_assinatura",
+    "source": "KB: depende de análise; ENCAMINHE SEMPRE: pedir análise",
+    "turns": [
+      "Quero mudar o dia de vencimento das minhas parcelas"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "contrato_atualizar_endereco",
+    "kb": "contrato_atendimento_assinatura",
+    "source": "AUTOATENDIMENTO; KB Atualização cadastral",
+    "turns": [
+      "Como atualizo meu endereço de cobrança?"
+    ],
+    "transfer": null,
+    "include": [
+      "Meus Dados"
+    ]
+  },
+  {
+    "id": "contrato_prazo_disponibilizacao",
+    "kb": "contrato_atendimento_assinatura",
+    "source": "KB Prazo para disponibilização do contrato",
+    "turns": [
+      "Paguei a entrada, em quanto tempo recebo o contrato?"
+    ],
+    "transfer": null,
+    "include": [
+      "7 dias úteis|sete dias úteis"
+    ]
+  },
+  {
+    "id": "contrato_envio_sedex",
+    "kb": "contrato_atendimento_assinatura",
+    "source": "KB Envio dos documentos físicos",
+    "turns": [
+      "Para onde envio o contrato assinado?"
+    ],
+    "transfer": null,
+    "include": [
+      "Emiliano Perneta"
+    ]
+  },
+  {
+    "id": "contrato_menor_idade",
+    "kb": "contrato_juridico",
+    "source": "KB Menor de idade: regra geral",
+    "turns": [
+      "Meu filho tem 15 anos, ele pode comprar um lote?"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "juridico_notificacao",
+    "kb": "contrato_juridico",
+    "source": "ENCAMINHE SEMPRE: notificação, cobrança",
+    "turns": [
+      "Recebi uma notificação de cobrança de vocês"
+    ],
+    "transfer": "Ajuizados"
+  },
+  {
+    "id": "juridico_carta_rogatoria",
+    "kb": "contrato_juridico",
+    "source": "ENCAMINHE SEMPRE: carta rogatória",
+    "turns": [
+      "Recebi uma carta rogatória, o que eu faço?"
+    ],
+    "transfer": "Ajuizados"
+  },
+  {
+    "id": "juridico_desapropriacao",
+    "kb": "contrato_juridico",
+    "source": "ENCAMINHE SEMPRE: desapropriação",
+    "turns": [
+      "A prefeitura vai desapropriar a área do meu lote"
+    ],
+    "transfer": "Ajuizados"
+  },
+  {
+    "id": "juridico_renegociar_ajuizado",
+    "kb": "contrato_juridico",
+    "source": "EQUIPE: assunto jurídico decide a equipe",
+    "turns": [
+      "Meu contrato está na justiça e eu quero renegociar"
+    ],
+    "transfer": "Ajuizados"
+  },
+  {
+    "id": "lgpd",
+    "kb": "contrato_juridico",
+    "source": "KB: LGPD segue para a equipe; tool Geral",
+    "turns": [
+      "Quero que vocês apaguem todos os meus dados pessoais, conforme a LGPD"
+    ],
+    "transfer": "Geral"
+  },
+  {
+    "id": "iptu_informacoes",
+    "kb": "iptu",
+    "source": "AUTOATENDIMENTO; KB Consulta e emissão da guia",
+    "turns": [
+      "Onde vejo as informações do IPTU do meu lote?"
+    ],
+    "transfer": null,
+    "include": [
+      "portaldocliente\\.paraisogold\\.com\\.br/portal/login"
+    ]
+  },
+  {
+    "id": "iptu_ajuste_inscricao",
+    "kb": "iptu",
+    "source": "ENCAMINHE SEMPRE: ajuste da inscrição do IPTU",
+    "turns": [
+      "A inscrição do IPTU do meu lote está errada, preciso corrigir"
+    ],
+    "transfer": "IPTU"
+  },
+  {
+    "id": "iptu_duplicidade",
+    "kb": "iptu",
+    "source": "KB Pagamento em duplicidade; ENCAMINHE SEMPRE: pedir análise",
+    "turns": [
+      "Paguei o IPTU duas vezes, como recebo de volta?"
+    ],
+    "transfer": "IPTU"
+  },
+  {
+    "id": "iptu_condominio",
+    "kb": "iptu",
+    "source": "KB: condomínio vai à administradora",
+    "turns": [
+      "Tenho uma dúvida sobre a taxa do condomínio do meu loteamento"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "escritura_documentos",
+    "kb": "escritura_registro",
+    "source": "QUANDO NÃO ENCAMINHAR: documentos",
+    "turns": [
+      "Quais documentos preciso para fazer a escritura?"
+    ],
+    "transfer": null,
+    "include": [
+      "estado civil|nascimento|casamento"
+    ]
+  },
+  {
+    "id": "escritura_volpi",
+    "kb": "escritura_registro",
+    "source": "KB Sétimo Cartório Volpi",
+    "turns": [
+      "Quais são os contatos do Cartório Volpi?"
+    ],
+    "transfer": null,
+    "include": [
+      "7tabelionatocuritiba\\.com\\.br",
+      "3094-7700"
+    ]
+  },
+  {
+    "id": "escritura_parcelar",
+    "kb": "escritura_registro",
+    "source": "KB Solicitar parcelamento: atendimento é transferido",
+    "turns": [
+      "Quero parcelar as despesas da escritura"
+    ],
+    "transfer": "Escrituras"
+  },
+  {
+    "id": "escritura_itbi_valor",
+    "kb": "escritura_registro",
+    "source": "VALORES E CÁLCULOS",
+    "turns": [
+      "Quanto vou pagar de ITBI na escritura do meu lote?"
+    ],
+    "transfer": null,
+    "exclude": [
+      "R\\$"
+    ]
+  },
+  {
+    "id": "escritura_prazo",
+    "kb": "escritura_registro",
+    "source": "KB Prazos",
+    "turns": [
+      "Depois de quitar, tenho prazo para fazer a escritura?"
+    ],
+    "transfer": null,
+    "include": [
+      "45 dias"
+    ]
+  },
+  {
+    "id": "compra_lote",
+    "kb": "compra_pos_venda",
+    "source": "ENCAMINHE SEMPRE: comprar ou lote disponível",
+    "turns": [
+      "Tem lote disponível em Curitiba?"
+    ],
+    "transfer": "Compra"
+  },
+  {
+    "id": "compra_investimento",
+    "kb": "compra_pos_venda",
+    "source": "INVESTIMENTO E RECOMPRA",
+    "turns": [
+      "Comprar um lote de vocês é um bom investimento? Vai valorizar?"
+    ],
+    "transfer": null,
+    "exclude": [
+      "(?<!não |nem )garant[eo] (a )?valoriza"
+    ]
+  },
+  {
+    "id": "corretor_parceria",
+    "kb": "corretores",
+    "source": "ENCAMINHE SEMPRE: imobiliária querendo ser parceira",
+    "turns": [
+      "Sou corretor e quero ser parceiro de vocês"
+    ],
+    "transfer": "Compra"
+  },
+  {
+    "id": "lote_construcao",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "KB Projeto, alvará e construção",
+    "turns": [
+      "Quando posso começar a construir no meu lote?"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "lote_demarcacao",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "tool Demarcacao",
+    "turns": [
+      "Preciso que façam a demarcação do meu lote"
+    ],
+    "transfer": "Demarcacao"
+  },
+  {
+    "id": "lote_matricula",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "KB Matrícula atualizada",
+    "turns": [
+      "Como consigo a matrícula atualizada do meu lote?"
+    ],
+    "transfer": null,
+    "include": [
+      "registrodeimoveis\\.org\\.br"
+    ]
+  },
+  {
+    "id": "lote_casa_nova_fossa",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "KB Fossa e filtro no loteamento Casa Nova",
+    "turns": [
+      "Tenho um lote no Casa Nova e preciso da fossa e filtro"
+    ],
+    "transfer": null,
+    "include": [
+      "abecker\\.com\\.br"
+    ]
+  },
+  {
+    "id": "lote_dano_ambiental",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "tool Geral: dano ambiental",
+    "turns": [
+      "Estão tirando terra e cortando árvores no lote vizinho ao meu"
+    ],
+    "transfer": "Geral"
+  },
+  {
+    "id": "lote_invasao",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "KB Invasão: comunicar a Central Gold",
+    "turns": [
+      "Invadiram meu lote, o que eu faço?"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "lote_metragem",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "tool Contrato: metragem; VOCABULÁRIO",
+    "turns": [
+      "Medi meu lote e ele é menor do que está no contrato"
+    ],
+    "transfer": "Contrato",
+    "exclude": [
+      "ressarcimento"
+    ]
+  },
+  {
+    "id": "institucional_telefone",
+    "kb": "institucional",
+    "source": "KB Canais oficiais",
+    "turns": [
+      "Qual é o telefone de vocês?"
+    ],
+    "transfer": null,
+    "include": [
+      "3023-2882"
+    ]
+  },
+  {
+    "id": "institucional_email",
+    "kb": "institucional",
+    "source": "KB Canais oficiais",
+    "turns": [
+      "Qual o e-mail de atendimento?"
+    ],
+    "transfer": null,
+    "include": [
+      "sac@paraisogold\\.com\\.br"
+    ]
+  },
+  {
+    "id": "institucional_endereco",
+    "kb": "institucional",
+    "source": "KB Atendimento presencial",
+    "turns": [
+      "Qual o endereço do escritório de vocês?"
+    ],
+    "transfer": null,
+    "include": [
+      "Emiliano Perneta"
+    ]
+  },
+  {
+    "id": "reclamacao",
+    "kb": "-",
+    "source": "ENCAMINHE SEMPRE: reclamação",
+    "turns": [
+      "Quero fazer uma reclamação, ninguém me responde"
+    ],
+    "transfer": "Reclamacao"
+  },
+  {
+    "id": "atendente_sem_assunto",
+    "kb": "-",
+    "source": "EQUIPE: atendente sem assunto, pergunta uma vez",
+    "turns": [
+      "Quero falar com um atendente",
+      "Prefiro falar direto com uma pessoa"
+    ],
+    "transfer": "Geral"
+  },
+  {
+    "id": "atendente_com_assunto",
+    "kb": "-",
+    "source": "EQUIPE: atendente com assunto",
+    "turns": [
+      "Quero falar com um atendente",
+      "É sobre o meu boleto que não chegou"
+    ],
+    "transfer": "Boletos"
+  },
+  {
+    "id": "identidade",
+    "kb": "-",
+    "source": "IDENTIDADE",
+    "turns": [
+      "Com quem eu estou falando? Que empresa é essa?"
+    ],
+    "transfer": null,
+    "include": [
+      "Central Gold"
+    ]
+  },
+  {
+    "id": "social",
+    "kb": "-",
+    "source": "CONVERSA SOCIAL",
+    "turns": [
+      "Oi, boa tarde"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "link_segundo_turno",
+    "kb": "-",
+    "source": "LINK DA ÁREA DO CLIENTE",
+    "turns": [
+      "Preciso da segunda via do boleto",
+      "E onde eu atualizo meu e-mail?"
+    ],
+    "transfer": null,
+    "include": [
+      "portaldocliente\\.paraisogold\\.com\\.br/portal/login"
+    ]
+  },
+  {
+    "id": "ja_tentei_contrato",
+    "kb": "contrato_juridico",
+    "source": "ENCAMINHE SEMPRE: já tentou; KB segunda via: equipe providencia",
+    "turns": [
+      "Tentei baixar o contrato na Área do Cliente e não consegui"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "ja_tentei_cadastro",
+    "kb": "contrato_atendimento_assinatura",
+    "source": "ENCAMINHE SEMPRE: já tentou; KB atualização cadastral",
+    "turns": [
+      "Já tentei atualizar meu e-mail pelo portal e não deu certo"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "ja_tentei_iptu",
+    "kb": "iptu",
+    "source": "ENCAMINHE SEMPRE: já tentou",
+    "turns": [
+      "Tentei emitir a guia do IPTU pela Área do Cliente e não consegui"
+    ],
+    "transfer": "IPTU"
+  },
+  {
+    "id": "nao_tentou_pagar",
+    "kb": "contrato_financeiro",
+    "source": "negativo: não é tentativa de autoatendimento",
+    "turns": [
+      "Não consegui pagar a parcela deste mês, o que acontece?"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "nao_tentou_obra",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "negativo: não é tentativa de autoatendimento",
+    "turns": [
+      "Não consigo começar a obra porque a prefeitura ainda não liberou o alvará"
+    ],
+    "transfer": null
+  },
+  {
+    "id": "lote_agua_luz",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "KB Contas de água e energia (encaminhado, 27/10); tool Contrato: água e luz",
+    "turns": [
+      "Chegou uma conta de luz muito alta no meu lote, preciso que vocês analisem"
+    ],
+    "transfer": "Contrato"
+  }
+]

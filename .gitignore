@@ -14,3 +14,6 @@ build/
 
 # Cache do Python (tools do Orchestrate)
 __pycache__/
+
+# Resultados da bateria de regressão
+orchestrate/tests/results/

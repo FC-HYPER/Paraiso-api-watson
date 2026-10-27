@@ -50,18 +50,22 @@ HOLIDAYS = {
     date(2027, 11, 15),  # Proclamação da República
 }
 
-# Fora do expediente o texto vai literal: reescrito, o LLM poderia prometer um encaminhamento
-# que não acontece. Pendente de validação da Jô.
+# Fora do expediente a transferência também acontece: a Aspa deixa o atendimento na fila até
+# alguém assumir (André, 23/10/2026). O texto vai literal, para o LLM não prometer prazo.
+# Aprovado em 23/10/2026. Mesmo texto em src/utils/transfer-fallback.ts.
 OUT_OF_HOURS_MESSAGE = (
-    "Nossa equipe atende de segunda a sexta-feira, das 9h às 18h, exceto feriados. "
-    "No momento não consigo encaminhar seu atendimento. Por favor, envie sua mensagem "
-    "novamente dentro desse horário."
+    "Nosso atendimento humano funciona de segunda a sexta-feira, das 9h às 18h, exceto "
+    "feriados. 🙂 Seu atendimento já está na fila, e a equipe responsável continua a "
+    "conversa por aqui no próximo horário de atendimento, sem que você precise enviar tudo "
+    "de novo. Para agilizar, envie seu CPF/CNPJ ou número do contrato."
 )
+
+
 
 # Na transferência, quem escreve ao cliente é o LLM, para poder explicar a regra antes de
 # avisar o encaminhamento. Este texto é instrução para ele, não vai ao cliente.
 HANDOFF_INSTRUCTION = (
-    "Transferência registrada. Agora escreva a resposta ao cliente. Se ele pediu atendente, "
+    "Transferência feita. Agora escreva a resposta ao cliente. Se ele pediu atendente, "
     "disse que já tentou e não conseguiu ou fez reclamação, não explique nada. Nos demais "
     "casos, explique em até três frases a regra geral do assunto usando somente os trechos "
     "da base consultados nesta mensagem, sem acrescentar documentos, prazos, canais ou "
@@ -71,7 +75,7 @@ HANDOFF_INSTRUCTION = (
     "foi conversado, então ele não precisa repetir nada. Se o cliente ainda não informou o "
     "CPF/CNPJ ou o número do contrato nesta conversa, peça na última frase que ele envie, para "
     "a equipe já receber o atendimento identificado. Não cite o nome da equipe, setores nem "
-    "contatos."
+    "contatos. Não diga que o pedido foi registrado nem cite protocolo."
 )
 
 
@@ -108,7 +112,7 @@ def transfer_to_human(context: AgentRun, destination: Destination, summary: str)
       trocar de lote, rescisão de contrato ajuizado.
     - Renegociacao: renegociação de contrato não ajuizado.
     - Transferencia: transferência de titularidade, falecimento do titular.
-    - Contrato: preparação e assinatura, segunda via de contrato, vencimento contratual,
+    - Contrato: preparação e assinatura, segunda via de contrato que não está disponível na Área do Cliente, vencimento contratual,
       documentos, cláusulas, menor de idade, metragem, invasão, água e luz, matrícula,
       planta, alvará, atualização cadastral que não se resolve pelo portal.
     - IPTU: IPTU, condomínio, taxa de lixo.
@@ -129,13 +133,14 @@ def transfer_to_human(context: AgentRun, destination: Destination, summary: str)
             assunto, por exemplo "rescisão de contrato ajuizado". Sem CPF, telefone ou
             outro dado pessoal.
     """
-    if not _within_business_hours(datetime.now(TIMEZONE)):
-        return _to_customer(OUT_OF_HOURS_MESSAGE)
-
     handoff = {"atendimento_humano": True, "handoff_summary": summary}
     # Sem equipe, a Aspa manda para o TIME, a fila geral.
     if destination != GENERAL:
         handoff["distribuicao"] = destination
     context.request_context.update(handoff)
 
+    if not _within_business_hours(datetime.now(TIMEZONE)):
+        return _to_customer(OUT_OF_HOURS_MESSAGE)
+
     return _to_agent(HANDOFF_INSTRUCTION)
+

@@ -14,11 +14,15 @@ export const TRANSFER_FALLBACK_MESSAGE =
   'Vou te encaminhar para a equipe responsável, que continua a conversa por aqui mesmo. ' +
   'Para agilizar, envie seu CPF/CNPJ ou número do contrato.';
 
-/** Pendente de validação da Jô, como na tool. */
+/**
+ * Fora do expediente a transferência também acontece: a Aspa deixa o atendimento na
+ * fila até alguém assumir (André, 23/10/2026). Texto aprovado em 23/10/2026.
+ */
 export const OUT_OF_HOURS_MESSAGE =
-  'Nossa equipe atende de segunda a sexta-feira, das 9h às 18h, exceto feriados. ' +
-  'No momento não consigo encaminhar seu atendimento. Por favor, envie sua mensagem ' +
-  'novamente dentro desse horário.';
+  'Nosso atendimento humano funciona de segunda a sexta-feira, das 9h às 18h, exceto ' +
+  'feriados. 🙂 Seu atendimento já está na fila, e a equipe responsável continua a ' +
+  'conversa por aqui no próximo horário de atendimento, sem que você precise enviar tudo ' +
+  'de novo. Para agilizar, envie seu CPF/CNPJ ou número do contrato.';
 
 /** Fuso fixo de -3h: o Brasil não tem horário de verão desde 2019. */
 const UTC_OFFSET_HOURS = -3;
@@ -70,10 +74,6 @@ export interface TransferFallback {
 }
 
 export function buildTransferFallback(args: TransferArgs, now: Date): TransferFallback {
-  if (!isWithinBusinessHours(now)) {
-    return { text: OUT_OF_HOURS_MESSAGE, context: {} };
-  }
-
   const context: Record<string, unknown> = { atendimento_humano: true };
   // Destino fora do mapa vai para a fila geral: com `distribuicao` inválida, o
   // `buildAspaControl` descartaria a transferência inteira.
@@ -86,5 +86,6 @@ export function buildTransferFallback(args: TransferArgs, now: Date): TransferFa
   }
   if (typeof args.summary === 'string') context.handoff_summary = args.summary;
 
-  return { text: TRANSFER_FALLBACK_MESSAGE, context };
+  const text = isWithinBusinessHours(now) ? TRANSFER_FALLBACK_MESSAGE : OUT_OF_HOURS_MESSAGE;
+  return { text, context };
 }

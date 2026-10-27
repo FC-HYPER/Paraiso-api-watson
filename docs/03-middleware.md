@@ -116,6 +116,7 @@ só então responde ao gateway. Eventos usados:
 |---|---|
 | `message.created` | O texto da resposta: itens com `response_type` `text` ou `conversational_search`. Outros tipos são ignorados e logados. Várias mensagens na mesma run viram um texto só |
 | `run.completed` (ou `done`) | O contexto final da run, com o que as tools gravaram. Tem precedência sobre o contexto do `message.created` |
+| `run.step.delta` | As etapas da run: `tool_calls` (nome e argumentos) e `tool_response`. Se a `transfer_to_human` foi chamada e nenhuma resposta dela veio como lista (o executor de tools da IBM falhou), o service expõe `failedTransfer` com os argumentos da chamada |
 | `flow.slot.listen` | Workflow assíncrono: a resposta virá depois, pela thread. Hoje só é logado |
 | `run.failed`, `run.cancelled`, `run.expired`, `error` | Falha da run: vira 502 |
 | Qualquer evento | `thread_id`, `run_id` e `trace_id`, que vão para o log |
@@ -162,6 +163,18 @@ cliente real. Só passa o que estiver na lista fechada e com valor válido:
 responder: `**texto**` e `__texto__` viram `*texto*` (negrito do WhatsApp), e títulos com `#` viram
 uma linha em negrito. Asterisco solto (`5 * 3`) não é tocado. Links em Markdown (`[texto](url)`)
 ficam como estão, porque as instructions pedem esse formato.
+
+Depois da conversão, o controller aplica, nesta ordem, as travas que o prompt não garante:
+
+| Etapa | Arquivo | O que faz |
+|---|---|---|
+| Transferência pela falha da tool | [`transfer-fallback.ts`](../src/utils/transfer-fallback.ts) | Com `failedTransfer`, o middleware faz a transferência que a tool não fez: grava `atendimento_humano`, a `distribuicao` (se a equipe for válida e não for `Geral`) e o resumo, e **troca a resposta** pelo texto padrão. Fora do expediente (seg–sex, 9h–18h, UTC-3, `HOLIDAYS` como na tool), também transfere, com o texto da fila, igual ao da tool. As etapas seguintes não se aplicam a esse texto |
+| Link da Área do Cliente | [`official-links.ts`](../src/utils/official-links.ts) | Link em Markdown com rótulo "Área do Cliente" ou "Portal do Cliente", ou apontando para `portaldocliente.paraisogold.com.br`, passa a apontar para `https://portaldocliente.paraisogold.com.br/portal/login` |
+| Oferta de encaminhamento | [`handoff-offer.ts`](../src/utils/handoff-offer.ts) | Sem transferência, a frase "posso te encaminhar…" sai: o Habib encaminha ou não encaminha |
+| Promessa de registro | [`registration-claim.ts`](../src/utils/registration-claim.ts) | "Registrei", "deixei registrado", "seu pedido foi registrado" saem, porque não existe registro nem protocolo. Com transferência, a resposta inteira vira o texto padrão da transferência |
+
+As frases são retiradas inteiras; uma linha que sobra só com emoji ou pontuação também sai, e, se não
+sobrar nada, fica o texto original. Cada trava gera um aviso no log com o `run_id`.
 
 ---
 

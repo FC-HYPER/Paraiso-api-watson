@@ -1,6 +1,8 @@
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
 import { buildAspaControl } from '@/utils/aspa-control';
 import { stripHandoffOffer } from '@/utils/handoff-offer';
+import { fixOfficialLinks } from '@/utils/official-links';
+import { removeRegistrationClaim } from '@/utils/registration-claim';
 import { buildTransferFallback } from '@/utils/transfer-fallback';
 import { toWhatsAppText } from '@/utils/whatsapp-format';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -72,9 +74,7 @@ export async function sendMessageHandler(
       : undefined;
 
     if (fallback) {
-      request.log.warn(
-        `[orchestrate] transfer done by middleware (${fallback.context.atendimento_humano ? 'handoff' : 'out of hours'}) - run_id=${result.runId ?? '-'}`,
-      );
+      request.log.warn(`[orchestrate] transfer done by middleware - run_id=${result.runId ?? '-'}`);
     }
 
     const control = buildAspaControl(fallback?.context ?? result.context);
@@ -98,6 +98,14 @@ export async function sendMessageHandler(
     // a Aspa transferir para o TIME, a fila geral (André, 22/10/2026).
     let text = fallback?.text ?? toWhatsAppText(result.reply).trim();
 
+    const links = fixOfficialLinks(text);
+    if (links.fixed.length > 0) {
+      request.log.warn(
+        `[orchestrate] official link fixed (${links.fixed.join(', ')}) - run_id=${result.runId ?? '-'}`,
+      );
+      text = links.text;
+    }
+
     // Sem transferência, a oferta de encaminhar não vai ao cliente: o Habib encaminha
     // ou não encaminha. Ver `src/utils/handoff-offer.ts`.
     if (!fallback && !control.userDefined.atendimento_humano) {
@@ -105,6 +113,18 @@ export async function sendMessageHandler(
       if (offer.removed) {
         request.log.warn(`[orchestrate] handoff offer removed - run_id=${result.runId ?? '-'}`);
         text = offer.text;
+      }
+    }
+
+    // Não existe registro nem protocolo: a afirmação não vai ao cliente. Ver
+    // `src/utils/registration-claim.ts`.
+    if (!fallback) {
+      const claim = removeRegistrationClaim(text, control.userDefined.atendimento_humano === true);
+      if (claim.removed) {
+        request.log.warn(
+          `[orchestrate] registration claim removed - run_id=${result.runId ?? '-'}`,
+        );
+        text = claim.text;
       }
     }
 

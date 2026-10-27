@@ -36,12 +36,20 @@ export interface OfferStripResult {
 }
 
 export function stripHandoffOffer(text: string): OfferStripResult {
+  return stripSentences(text, OFFER_PATTERN);
+}
+
+/**
+ * Retira as frases que casam com `pattern`; as linhas sem nenhuma ficam idênticas.
+ * Usada também pela trava de afirmação de registro (`registration-claim.ts`).
+ */
+export function stripSentences(text: string, pattern: RegExp): OfferStripResult {
   let removed = false;
 
   const lines = text.split('\n').flatMap((line) => {
-    if (!OFFER_PATTERN.test(line)) return [line];
+    if (!pattern.test(line)) return [line];
 
-    const kept = line.split(SENTENCE_BREAK).filter((sentence) => !OFFER_PATTERN.test(sentence));
+    const kept = line.split(SENTENCE_BREAK).filter((sentence) => !pattern.test(sentence));
     removed = true;
     const rebuilt = kept.join(' ');
     return LEFTOVER.test(rebuilt) ? [] : [rebuilt];
@@ -54,7 +62,7 @@ export function stripHandoffOffer(text: string): OfferStripResult {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  // Resposta que era só a oferta fica como está: vazia, viraria `generic` vazio, e a
-  // Aspa transferiria para o TIME.
+  // Resposta que era só a frase retirada fica como está: vazia, viraria `generic`
+  // vazio, e a Aspa transferiria para o TIME.
   return stripped ? { text: stripped, removed } : { text, removed: false };
 }

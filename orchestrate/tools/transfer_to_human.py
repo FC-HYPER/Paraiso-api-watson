@@ -112,14 +112,14 @@ def transfer_to_human(context: AgentRun, destination: Destination, summary: str)
       trocar de lote, rescisão de contrato ajuizado.
     - Renegociacao: renegociação de contrato não ajuizado.
     - Transferencia: transferência de titularidade, falecimento do titular.
-    - Contrato: preparação e assinatura, segunda via de contrato que não está disponível na Área do Cliente, vencimento contratual,
+    - Contrato: situação do contrato (parcelas em aberto, status), preparação e assinatura, segunda via de contrato que não está disponível na Área do Cliente, vencimento contratual,
       documentos, cláusulas, menor de idade, metragem, invasão, água e luz, matrícula,
       planta, alvará, atualização cadastral que não se resolve pelo portal.
     - IPTU: IPTU, condomínio, taxa de lixo.
     - Escrituras: escritura, registro, ITBI, ITCMD, dúvidas sobre o aditivo do Tipo R.
     - Compra: compra de lote, corretores, confirmação da compra, pós-venda, comprar
       outro lote.
-    - Ajuizados: ajuizamento, atraso severo, Tipo K, interpelação, carta rogatória,
+    - Ajuizados: ajuizamento, atraso severo, Tipo K, Taxa de Notificação, interpelação, carta rogatória,
       desapropriação, renegociação de contrato ajuizado.
     - Demarcacao: demarcação e piquete.
     - Reclamacao: reclamações, insatisfação, pedido de supervisão.

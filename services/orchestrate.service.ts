@@ -126,6 +126,30 @@ const FAILURE_EVENTS = new Set(['run.failed', 'run.cancelled', 'run.expired', 'e
 /** O detalhe de falha vai para o log, nunca para o gateway. Limitado para não inundar o log. */
 const FAILURE_DETAIL_MAX = 500;
 
+/**
+ * Thread que não existe mais: o Orchestrate apaga o histórico depois do prazo de
+ * retenção (30 dias por padrão), e a Aspa continua reenviando o `thread_id` antigo.
+ * A run falha com "The specified thread ID - … does not exist. Retry the request
+ * with a valid thread ID or avoid specifying thread ID" (testado em 28/10/2026).
+ */
+const THREAD_NOT_FOUND = /thread id\b.*\bdoes not exist/i;
+
+/** Erro de validação da API (HTTP 422): `thread_id` que não é UUID cai aqui. */
+const validationErrorSchema = z.object({
+  detail: z.array(z.object({ loc: z.array(z.union([z.string(), z.number()])) }).passthrough()),
+});
+
+function isInvalidThreadId(body: string): boolean {
+  let json: unknown;
+  try {
+    json = JSON.parse(body);
+  } catch {
+    return false;
+  }
+  const parsed = validationErrorSchema.safeParse(json);
+  return parsed.success && parsed.data.detail.some((item) => item.loc.includes('thread_id'));
+}
+
 export interface SendMessageParams {
   message: string;
   /** Ausente na primeira mensagem da conversa. */
@@ -170,6 +194,8 @@ interface RunOutcome {
   /** Tipos de conteúdo que não são texto e foram ignorados (formulário, opção etc.). */
   skippedTypes: string[];
   failure?: string;
+  /** A run falhou porque o `thread_id` enviado não existe. */
+  threadNotFound: boolean;
   /**
    * Presente quando a `transfer_to_human` foi chamada e nenhum retorno dela veio da
    * própria tool; guarda os argumentos da última chamada. O retorno da tool chega
@@ -195,6 +221,7 @@ function parseRunStream(body: string): RunOutcome {
     completed: false,
     asyncFlow: false,
     skippedTypes: [],
+    threadNotFound: false,
   };
   const texts: string[] = [];
   let messageContext: Record<string, unknown> | undefined;
@@ -264,7 +291,9 @@ function parseRunStream(body: string): RunOutcome {
     } else if (event === 'flow.slot.listen') {
       outcome.asyncFlow = true;
     } else if (FAILURE_EVENTS.has(event)) {
-      outcome.failure = `${event}: ${JSON.stringify(data).slice(0, FAILURE_DETAIL_MAX)}`;
+      const detail = JSON.stringify(data);
+      outcome.failure = `${event}: ${detail.slice(0, FAILURE_DETAIL_MAX)}`;
+      outcome.threadNotFound ||= THREAD_NOT_FOUND.test(detail);
     }
   }
 
@@ -393,10 +422,16 @@ export class OrchestrateAgent {
     }
 
     if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+
+      if (threadId && response.status === 422 && isInvalidThreadId(detail)) {
+        return this.retryWithoutThread({ message, context }, 'invalid thread_id', logger);
+      }
+
       throw new OrchestrateError(
         502,
         'Failed to communicate with watsonx Orchestrate',
-        `HTTP ${response.status}: ${await response.text().catch(() => '')}`,
+        `HTTP ${response.status}: ${detail}`,
       );
     }
 
@@ -424,6 +459,10 @@ export class OrchestrateAgent {
     }
 
     if (run.failure) {
+      if (threadId && run.threadNotFound) {
+        return this.retryWithoutThread({ message, context }, `thread not found - ${ids}`, logger);
+      }
+
       throw new OrchestrateError(502, 'Agent run failed', `${ids} ${run.failure}`);
     }
 
@@ -459,5 +498,20 @@ export class OrchestrateAgent {
       traceId: run.traceId,
       failedTransfer: run.failedTransfer,
     };
+  }
+
+  /**
+   * Refaz a chamada sem `thread_id`, como a própria IBM orienta: a run cria uma
+   * thread nova e o id volta ao gateway no `context`, então a Aspa passa a usá-lo.
+   * O cliente perde só o histórico, que já não existia. Uma tentativa só: sem
+   * `thread_id`, a nova chamada não cai aqui de novo.
+   */
+  private retryWithoutThread(
+    params: Omit<SendMessageParams, 'threadId'>,
+    reason: string,
+    logger?: OrchestrateLogger,
+  ): Promise<SendMessageResult> {
+    logger?.warn(`[orchestrate] ${reason}, retrying without thread_id`);
+    return this.sendMessage(params, logger);
   }
 }

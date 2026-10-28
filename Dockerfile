@@ -13,8 +13,8 @@ COPY . .
 
 RUN npm run build
 
-# Estágio final: leva apenas o que executa. Sem tsup, typescript, eslint, vite e
-# prettier, o node_modules cai de 199 MB para 59 MB.
+# Estágio final: leva apenas o que executa. Sem tsup, typescript, eslint e
+# prettier, o node_modules cai de 199 MB para 59 MB (medido quando o vite ainda era dependência).
 # As camadas do Docker são acumulativas: podar num RUN posterior não devolveria
 # espaço, porque os arquivos continuariam na camada anterior. Por isso dois estágios.
 FROM node:20-alpine

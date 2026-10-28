@@ -756,5 +756,189 @@
       "Chegou uma conta de luz muito alta no meu lote, preciso que vocês analisem"
     ],
     "transfer": "Contrato"
+  },
+  {
+    "id": "vocab_luz_copel",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "VOCABULÁRIO DA CONSULTA: Copel → contas de água e luz (energia elétrica); ENCAMINHE SEMPRE: conta de água ou luz",
+    "turns": [
+      "A Copel mandou uma conta altíssima pro meu terreno, vocês podem ver isso?"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "vocab_luz_cocel",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "VOCABULÁRIO DA CONSULTA: Cocel (Campo Largo) → contas de água e luz (energia elétrica)",
+    "turns": [
+      "Veio uma cobrança da Cocel do meu terreno em Campo Largo, está errada"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "vocab_luz_celesc",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "VOCABULÁRIO DA CONSULTA: Celesc → contas de água e luz (energia elétrica)",
+    "turns": [
+      "A Celesc está me cobrando energia do lote, preciso que vocês analisem"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "vocab_agua_sanepar",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "VOCABULÁRIO DA CONSULTA: Sanepar → contas de água e luz",
+    "turns": [
+      "Chegou uma fatura da Sanepar no meu lote, preciso que vocês analisem"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "vocab_agua_casan",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "VOCABULÁRIO DA CONSULTA: Casan → contas de água e luz",
+    "turns": [
+      "A Casan mandou conta de água do meu lote, quero que vejam"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "vocab_agua_joinville",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "VOCABULÁRIO DA CONSULTA: Águas de Joinville → contas de água e luz",
+    "turns": [
+      "Recebi uma conta da Águas de Joinville do meu terreno, podem verificar?"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "vocab_imposto_renda",
+    "kb": "contrato_financeiro",
+    "source": "VOCABULÁRIO DA CONSULTA: comprovante do imposto de renda → informe de IR; KB Informe de rendimentos",
+    "turns": [
+      "Preciso do comprovante pra declarar o terreno no imposto de renda"
+    ],
+    "transfer": null,
+    "include": [
+      "informe de (IR|rendimentos)"
+    ]
+  },
+  {
+    "id": "vocab_multa_atraso",
+    "kb": "contrato_financeiro",
+    "source": "VOCABULÁRIO DA CONSULTA: multa por atraso → atraso no pagamento; KB Atraso no pagamento",
+    "turns": [
+      "Quanto é a multa se eu pagar a prestação atrasada?"
+    ],
+    "transfer": null,
+    "include": [
+      "2 ?%"
+    ]
+  },
+  {
+    "id": "vocab_passar_meu_nome",
+    "kb": "escritura_registro",
+    "source": "VOCABULÁRIO DA CONSULTA: passar para o próprio nome → escritura e registro",
+    "turns": [
+      "Quitei e quero passar o terreno pro meu nome no cartório"
+    ],
+    "transfer": null,
+    "include": [
+      "escritura"
+    ]
+  },
+  {
+    "id": "transferencia_pedido_outra_pessoa",
+    "kb": "transferencia",
+    "source": "AUTOATENDIMENTO: pedido de transferência vai para a plataforma, sem encaminhar",
+    "turns": [
+      "Quero passar o contrato pro nome da minha esposa"
+    ],
+    "transfer": null,
+    "include": [
+      "transferencia\\.paraisogold\\.com\\.br"
+    ]
+  },
+  {
+    "id": "vocab_codigo_barras",
+    "kb": "boletos_carnes",
+    "source": "VOCABULÁRIO DA CONSULTA: código de barras → boleto, segunda via; CONTATOS OFICIAIS só quando pedidos",
+    "turns": [
+      "Me manda o código de barras da prestação pra eu pagar"
+    ],
+    "transfer": null,
+    "include": [
+      "portaldocliente\\.paraisogold\\.com\\.br/portal/login"
+    ],
+    "exclude": [
+      "3023-2882",
+      "sac@paraisogold"
+    ]
+  },
+  {
+    "id": "taxa_notificacao",
+    "kb": "boletos_carnes",
+    "source": "TAXA DE NOTIFICAÇÃO: o KB só cita o nome; encaminha sem explicar",
+    "turns": [
+      "Por que tem uma taxa de notificação no meu extrato?"
+    ],
+    "transfer": "Ajuizados",
+    "exclude": [
+      "notificação de cobrança",
+      "inadimpl",
+      "atras",
+      "em aberto"
+    ]
+  },
+  {
+    "id": "iptu_endereco_errado",
+    "kb": "iptu",
+    "source": "KB Endereço diferente ou errado no carnê do IPTU; ENCAMINHE SEMPRE",
+    "turns": [
+      "O carnê do IPTU veio com o endereço errado do lote"
+    ],
+    "transfer": "IPTU"
+  },
+  {
+    "id": "lote_desmembramento",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "KB Desmembramento do terreno (dividir o lote)",
+    "turns": [
+      "Quero dividir meu terreno em dois, como faço?"
+    ],
+    "transfer": null,
+    "include": [
+      "quitado"
+    ]
+  },
+  {
+    "id": "lote_unificacao",
+    "kb": "contrato_lote_construcao_terreno",
+    "source": "KB Unificação de imóveis (juntar lotes)",
+    "turns": [
+      "Tenho dois lotes vizinhos, dá pra juntar num só?"
+    ],
+    "transfer": null,
+    "include": [
+      "contíguos|quitação"
+    ]
+  },
+  {
+    "id": "contrato_em_dia",
+    "kb": "-",
+    "source": "ENCAMINHE SEMPRE: situação do contrato; tool Contrato: situação do contrato",
+    "turns": [
+      "Meu contrato está em dia?"
+    ],
+    "transfer": "Contrato"
+  },
+  {
+    "id": "contrato_parcelas_abertas",
+    "kb": "-",
+    "source": "ENCAMINHE SEMPRE: situação do contrato; tool Contrato: situação do contrato",
+    "turns": [
+      "Tenho alguma parcela em aberto?"
+    ],
+    "transfer": "Contrato"
   }
 ]

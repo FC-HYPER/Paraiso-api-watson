@@ -35,7 +35,7 @@ daqui e o que ensinou vai para lá.
 | `@fastify/static <=10.1.1` vulnerável via `@fastify/swagger-ui`; corrigir exige `swagger-ui@6`, breaking. Mitigado por não registrar a documentação em produção | média |
 | `fastify-zod@1.4.0` declara peer `fastify@4` e o projeto roda o 5; obriga `--legacy-peer-deps`. Avaliar `fastify-type-provider-zod` | média |
 | `zod` 3 vulnerável (alta, consumo de memória em coleção grande). A correção só existe no zod 4, breaking, e o `fastify-zod` depende do 3: resolver junto com a troca acima | média |
-| Vulnerabilidades em dependências de dev que só se corrigem com major: `esbuild` (baixa, via `tsup@8`; corrige no `tsup@9`), `@typescript-eslint` antigo (via `@rocketseat/eslint-config@2`; corrige no 3) e `tinypool` (via `vitest@3`; corrige no 5). Não vão para a imagem de produção, mas o Dependabot alerta | baixa |
+| Vulnerabilidades em dependências de dev que só se corrigem com major: `esbuild` (baixa, via `tsup@8`; corrige no `tsup@9`), e `@typescript-eslint` antigo (via `@rocketseat/eslint-config@2`; corrige no 3). Não vão para a imagem de produção, mas o Dependabot alerta. `vite`, `vite-tsconfig-paths` e `vitest` saíram em 28/10/2026, sem uso, e com eles o alerta 2 (moderado, `vitest`) e o crítico do `tinypool`; o alerta da `main` só fecha quando a branch entrar nela | baixa |
 | Verificar se há gatilho automático de build por push; hoje é preciso **Executar novamente a compilação** | baixa |
 | `prettier` acusa `Delete ␍` em todo arquivo (CRLF sem `endOfLine` no `.prettierrc.json`), e `npm run lint` falha por isso | baixa |
 | Fixar a imagem base: `node:20-alpine` é tag móvel | baixa |
@@ -48,7 +48,6 @@ daqui e o que ensinou vai para lá.
 
 | Pendência | Situação |
 |---|---|
-| **Rodar a bateria dentro do expediente** | A de 27/10/2026 rodou depois das 18h: toda transferência entregou o texto fixo da fila, sem explicação do LLM. Ficaram sem teste real a trava da Taxa de Notificação (não explicar) e a explicação das demais transferências com as instructions novas |
 | Tool de ofensa com `encerrar_sessao` | A guideline "Ofensa direta ou ameaca" continua. Virar tool com os textos da Jô (advertência e encerramento) e `encerrar_sessao`, depois da confirmação dela (1.1) |
 | Base externa com embedding multilíngue | Decidido em 27/10/2026 ficar com a base interna (só embedding em inglês) e decidir com dados reais: 2 a 4 semanas de conversas medindo respostas "não tenho essa informação" (o middleware pode logar) e transferências erradas. Migrar se aparecerem várias falhas de vocabulário ou se a lista de regras fixas crescer. O contato da IBM se ofereceu para dimensionar Milvus, Elasticsearch ou Astra DB |
 | Modelo `frontier`: decisão definitiva | Pesar aderência às regras contra latência (mediana ~12 s, picos de até 55 s). O custo em si não está documentado. Não é governado pela IBM (`provider: openai`), assim como o `gpt-oss`: o Habib processa CPF, cobrança e textos jurídicos, e compliance pode levantar. Alternativa a avaliar: Granite |

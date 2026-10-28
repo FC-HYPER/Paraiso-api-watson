@@ -16,7 +16,6 @@ daqui e o que ensinou vai para lá.
 | Jô: datas sem atendimento humano (deixado para depois em 23/10/2026) | Validar a lista `HOLIDAYS` da tool e do middleware. Em aberto: Carnaval e Corpus Christi (ponto facultativo); 8 de setembro (feriado só de Curitiba); 24 e 31 de dezembro |
 | Formato do `attachment` | Perguntar à Aspa quando houver anexo (boleto em PDF): o campo recebe a URL direto ou um objeto? Antes de emitir, estender o schema de resposta, senão o Fastify descarta o campo |
 | Jô: o que é a Taxa de Notificação | Os KBs só citam o nome (lançamento do Extrato). Com a busca, o Habib inventou que ela "surge quando há notificação de cobrança". Hoje ele não explica e encaminha a Ajuizados (regra TAXA DE NOTIFICAÇÃO). Com o texto da Jô, a explicação entra no `kb_boletos_carnes` e a regra sai |
-| Município do Casa Nova (SC) | Nem os KBs nem o site da Paraíso Gold dizem. Serve para conferir a concessionária de água e luz do loteamento (2.4) |
 | Webhook `/watson/solicitacao` | O dialog do Watson chama um serviço em Google Cloud Run que envia e-mail, CPF/CNPJ, proposta, telefone e tipo de fatura. Levantar quem mantém e o que faz: precisará virar tool no Orchestrate |
 
 ---

@@ -15,7 +15,7 @@ Itens em aberto estão em [01-pendencias.md](01-pendencias.md); o funcionamento 
 | Timeout do gateway | Espera até **3 minutos** e recomenda ficar dentro de **2** (11/08/2026). O middleware usa 120 s |
 | Texto em `generic` junto com `distribuicao` | A Aspa registra a transferência e em seguida envia a mensagem; o atendente já recebe a conversa com ela (André, 22/10/2026) |
 | Homologação | A Aspa aponta a homologação para `POST /api/orchestrate/message` com o header `apikey` (confirmado em 22/10/2026) |
-| `context` substituído ou mesclado | **Substituído.** A Aspa reenvia o `context` exatamente como o devolvemos na última resposta e não guarda registro (André, 22/10/2026). Uma `distribuicao` não persiste no turno seguinte: o middleware só lê o `phone` da entrada e só devolve o controle da run atual |
+| `context` substituído ou mesclado | **Substituído.** A Aspa reenvia o `context` exatamente como o devolvemos na última resposta e não guarda registro (André, 22/10/2026). Uma `distribuicao` não persiste no turno seguinte: o middleware só lê o `phone` da entrada e só devolve o controle da run atual. Pela mesma razão, o `thread_id` novo que o middleware devolve quando a thread antiga não existe mais (2.5) passa a valer já na mensagem seguinte, sem nada a configurar na Aspa |
 | Formato do telefone | `user_defined.phone` vem completo: `55` + DDD + número (André, 22/10/2026) |
 | `atendimento_humano` sem `distribuicao` | Transfere para o **TIME**, não para uma habilidade. Não existe destino "Outros" configurado (André, 22/10/2026) |
 | `generic` vazio e erro do middleware | Os dois tiram a conversa do agente e transferem para o TIME (André, 22/10/2026; o documento "Integração IA ParaísoGold" já dizia isso do `generic` vazio) |

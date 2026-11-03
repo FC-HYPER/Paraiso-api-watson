@@ -9,7 +9,9 @@ import { z } from 'zod';
  * `passthrough` porque o gateway pode carregar outras chaves no contexto; elas
  * seguem para o agente. Sem isso o Fastify as descartaria.
  */
-const messageContextSchema = z.object({ thread_id: z.string().optional() }).passthrough();
+const messageContextSchema = z
+  .object({ thread_id: z.string().optional(), last_message_at: z.string().optional() })
+  .passthrough();
 
 const messageRequestSchema = z.object({
   input: z.string(),
@@ -53,6 +55,9 @@ const messageResponseSchema = z.object({
     }),
     context: z.object({
       thread_id: z.string().optional(),
+      // Hora da resposta (ISO, UTC). Volta na mensagem seguinte e decide se a
+      // conversa recomeça. Ver src/utils/conversation.ts.
+      last_message_at: z.string().optional(),
       skills: z
         .object({
           'main skill': z.object({

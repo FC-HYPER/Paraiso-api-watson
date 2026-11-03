@@ -37,6 +37,13 @@ export const envSchema = z.object({
     (value) => (value === '' || value === undefined ? undefined : value),
     z.coerce.number().int().positive().default(120_000),
   ),
+  // Opcional, em HORAS (não milissegundos, como o WXO_TIMEOUT_MS): depois desse
+  // tempo sem mensagem, a conversa recomeça em thread nova. 24h é a janela de
+  // atendimento do WhatsApp Business. Ver src/utils/conversation.ts.
+  CONVERSATION_IDLE_HOURS: z.preprocess(
+    (value) => (value === '' || value === undefined ? undefined : value),
+    z.coerce.number().positive().default(24),
+  ),
 });
 
 const _env = envSchema.safeParse(process.env);

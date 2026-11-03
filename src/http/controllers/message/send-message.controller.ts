@@ -1,5 +1,7 @@
+import { env } from '@/config/env';
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
 import { buildAspaControl } from '@/utils/aspa-control';
+import { resolveConversation } from '@/utils/conversation';
 import { stripHandoffOffer } from '@/utils/handoff-offer';
 import { fixOfficialLinks } from '@/utils/official-links';
 import { removeRegistrationClaim } from '@/utils/registration-claim';
@@ -53,7 +55,15 @@ export async function sendMessageHandler(
   reply: FastifyReply,
 ) {
   const { input, context } = request.body;
-  const threadId = context?.thread_id;
+  const now = new Date();
+  const conversation = resolveConversation(context, now, env.CONVERSATION_IDLE_HOURS);
+  const threadId = conversation.threadId;
+
+  if (conversation.newConversation === 'idle') {
+    request.log.info(
+      `[conversation] new conversation: idle ${conversation.idleHours?.toFixed(1)}h, previous thread_id=${context?.thread_id}`,
+    );
+  }
 
   try {
     const result = await orchestrateAgent.sendMessage(
@@ -136,6 +146,13 @@ export async function sendMessageHandler(
       );
     }
 
+    // A conversa sai do Habib na transferência e no `generic` vazio, que a Aspa
+    // trata como transferência para o TIME. Sem o `thread_id`, a volta ao bot
+    // começa thread nova: a conversa com o atendente não passa pelo Orchestrate,
+    // e retomar a thread daria ao Habib um histórico incompleto. O id antigo fica
+    // na linha `[orchestrate]` acima. Ver src/utils/conversation.ts.
+    const handedOff = noReply || control.userDefined.atendimento_humano === true;
+
     // A forma da resposta replica a do Watson para o gateway não precisar mudar o
     // parsing: o texto do agente sai em data.output.generic[0].text, e as variáveis
     // de controle em data.context.skills["main skill"].user_defined.
@@ -146,7 +163,8 @@ export async function sendMessageHandler(
           generic: noReply ? [] : [{ response_type: 'text', text }],
         },
         context: {
-          ...(result.threadId && { thread_id: result.threadId }),
+          ...(result.threadId && !handedOff && { thread_id: result.threadId }),
+          last_message_at: now.toISOString(),
           ...(hasControl && {
             skills: { 'main skill': { user_defined: control.userDefined } },
           }),

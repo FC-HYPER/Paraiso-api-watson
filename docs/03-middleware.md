@@ -51,7 +51,8 @@ como caixa-preta: guarda o que devolvemos e reenvia na mensagem seguinte. É por
 // requisição
 { "input": "Meu contrato foi ajuizado",
   "context": {
-    "thread_id": "f03dea36-…",                       // ausente na primeira mensagem
+    "thread_id": "f03dea36-…",                       // ausente em conversa nova (3.4)
+    "last_message_at": "2026-11-03T19:23:23.114Z",
     "skills": { "main skill": { "user_defined": { "phone": "5541…" } } } } }
 
 // resposta
@@ -59,7 +60,8 @@ como caixa-preta: guarda o que devolvemos e reenvia na mensagem seguinte. É por
   "data": {
     "output": { "generic": [ { "response_type": "text", "text": "…" } ] },
     "context": {
-      "thread_id": "f03dea36-…",
+      "thread_id": "f03dea36-…",                     // ausente quando a conversa sai do Habib (3.4)
+      "last_message_at": "2026-11-03T19:23:38.287Z", // sempre
       "skills": { "main skill": { "user_defined": {   // só quando há variável de controle
         "distribuicao": "Ajuizados",
         "atendimento_humano": true,
@@ -75,7 +77,7 @@ como caixa-preta: guarda o que devolvemos e reenvia na mensagem seguinte. É por
 - **Ordem na Aspa:** quando a resposta traz `distribuicao`, a transferência é registrada primeiro e
   a mensagem de `generic` é enviada em seguida; o atendente já recebe a conversa com ela.
 - **O `context` é substituído a cada turno:** a Aspa reenvia exatamente o que devolvemos na última
-  resposta e não guarda nada do lado dela.
+  resposta e não guarda nada do lado dela. Também no **Reiniciar**: ele não zera o `context`.
 - **`phone`** vem completo, `55` + DDD + número.
 - **`generic` vazio e resposta de erro** (4xx/5xx) fazem a Aspa tirar a conversa do agente e
   transferir para o TIME, que funciona como fila geral: aparece para todos até alguém assumir.
@@ -129,6 +131,27 @@ thread), e o middleware manda uma mensagem só, de propósito.
 
 ## 3.4 Contexto
 
+### Conversa nova ou continuação
+
+Como a Aspa reenvia o último `context` indefinidamente, quem separa as conversas é o middleware
+([`conversation.ts`](../src/utils/conversation.ts)). Toda resposta leva `last_message_at` (ISO, UTC).
+Na entrada:
+
+| `context` recebido | Run |
+|---|---|
+| Sem `thread_id` | Sem `thread_id`: thread nova |
+| `last_message_at` há mais de `CONVERSATION_IDLE_HOURS` (padrão 24 h) | Sem `thread_id`: thread nova. Log `[conversation] new conversation: idle …h, previous thread_id=…` |
+| `thread_id` sem `last_message_at` ou com valor ilegível (conversas abertas antes desta regra) | Continua a thread |
+| Demais casos | Continua a thread |
+
+Na saída, o `thread_id` **não volta** quando a conversa sai do Habib: transferência
+(`atendimento_humano: true`, pela tool ou pelo fallback) ou `generic` vazio, que a Aspa também trata
+como transferência. A conversa com o atendente não passa pelo Orchestrate, e retomar a thread daria
+ao Habib um histórico incompleto. O id continua na linha `[orchestrate]` do log.
+
+As variáveis de controle não precisam disso: o middleware só lê `phone` e `thread_id` do `context`
+recebido, e o contexto do Orchestrate vale para uma run (02-decisoes.md, 2.1).
+
 ### Entrada: o que vai ao agente
 
 Só o `phone`, lido de `context.skills["main skill"].user_defined.phone` e repassado com nome plano
@@ -148,7 +171,7 @@ cliente real. Só passa o que estiver na lista fechada e com valor válido:
 | Contexto da run | `user_defined` da Aspa | Regra |
 |---|---|---|
 | `distribuicao` | `distribuicao` + `atendimento_humano: true` | Só os 12 valores aprovados (Boletos, Quitacao, Rescisao, Renegociacao, Transferencia, Contrato, IPTU, Escrituras, Compra, Ajuizados, Demarcacao, Reclamacao). Fora disso, inclusive "Financeiro", é descartado e logado como erro |
-| `handoff_summary` | `resumo_encaminhamento` | Só junto com uma transferência (equipe válida ou fila geral); até 500 caracteres; fora do log |
+| `handoff_summary` | `resumo_encaminhamento` | Só junto com uma transferência (equipe válida ou fila geral); até 500 caracteres. Fora da linha `[aspa]`, mas aparece no `OUT` do interceptor (3.7) |
 | `atendimento_humano` sem `distribuicao` | `atendimento_humano: true` | Fila geral: a Aspa manda para o TIME. É o destino `Geral` da `transfer_to_human` |
 | `encerrar_sessao`, `menu_aspa` | iguais | Só quando `true` |
 
@@ -206,7 +229,12 @@ picos de até 55 s em 22/10/2026.
   menu (1, 2, 10) não é mascarada. Vale só para o log; a resposta ao gateway sai intacta.
 - `thread_id`, `run_id` e `trace_id` nunca são mascarados: são o que permite achar a execução no
   painel do Orchestrate.
-- Do contexto, o log mostra **só as chaves**. O resumo do encaminhamento fica fora do log.
+- A linha `[orchestrate]` mostra só as **chaves** do contexto da run, e a linha `[aspa]`, só os
+  nomes das variáveis de controle e a equipe.
+- O `IN` e o `OUT` do interceptor gravam o corpo inteiro, com o mascaramento acima. Por isso o
+  `resumo_encaminhamento` aparece no `OUT` da transferência e no `IN` da mensagem seguinte (a Aspa
+  reenvia o `context`). É intencional: o resumo descreve o assunto, não identifica o cliente, e os
+  dígitos são mascarados (02-decisoes.md, 2.5).
 
 ---
 
@@ -223,7 +251,8 @@ publicar uma imagem que exija variável nova.**
 | `WXO_INSTANCE_URL` | sim | URL da instância do Orchestrate (barra final é removida) |
 | `WXO_API_KEY` | sim | API key do Orchestrate, trocada pelo token IAM. Referenciar de um Secret |
 | `WXO_AGENT_ID` | sim | Id do agente Habib |
-| `WXO_TIMEOUT_MS` | não | Padrão 120000. Vazio conta como ausente. Se cadastrada no Code Engine, tem precedência |
+| `WXO_TIMEOUT_MS` | não | Em **milissegundos**. Padrão 120000. Vazio conta como ausente. Se cadastrada no Code Engine, tem precedência |
+| `CONVERSATION_IDLE_HOURS` | não | Em **horas**. Padrão 24. Tempo sem mensagem para a conversa recomeçar em thread nova (3.4). Vazio conta como ausente |
 | `NODE_ENV` | não | Padrão `qas`. **Produção precisa de `production`**, senão o Swagger fica público |
 | `PORT` | não | Padrão 3333 |
 | `API_QAS_URL`, `API_PRD_URL` | sim | Servidores listados no Swagger |
@@ -244,7 +273,18 @@ vez, ao ser gerada.
 **As tags separam os ambientes.** Nunca publicar em `:latest` a partir do fluxo de
 desenvolvimento: produção só muda por promoção consciente.
 
-A homologação tem uma compilação a partir da fonte:
+Onde fica cada coisa no painel da IBM Cloud:
+
+| | |
+|---|---|
+| Code Engine | Menu ☰ → **Containers** → Serverless → Projetos → `paraiso-watson-api` |
+| Projeto | Região **us-east** (Washington), grupo de recursos **Watson Paraiso** |
+| Container Registry | Região **Dallas** (us-south), namespace `watson-paraiso-api`. Cota do plano gratuito: 512 MB de armazenamento |
+
+A homologação tem uma compilação a partir da fonte, a **`paraiso-api-ura-watson-homolog-build-4bfqb`**.
+Das três construções do projeto, só ela grava em `:homolog`: a `…-homolog-build-8wtlf`, apesar do
+nome, e a `application-ed-build-hblw9` gravam em `…/paraiso-api` sem tag, ou seja, em **`:latest`
+(produção)**. Conferir a aba **Saída** antes de executar qualquer uma.
 
 | | |
 |---|---|
@@ -254,12 +294,46 @@ A homologação tem uma compilação a partir da fonte:
 | Estratégia | Dockerfile da raiz, multi-stage, `npm ci --legacy-peer-deps` com lockfile versionado |
 | Saída | `…/paraiso-api:homolog` |
 
-Ciclo: `git push` na branch e **Executar novamente a compilação** no Code Engine (não há gatilho
-automático confirmado). A imagem final leva só dependências de produção. O `--legacy-peer-deps`
-existe porque o `fastify-zod` declara peer `fastify@4` e o projeto roda o 5.
+Ciclo de publicação (feito assim em 03/11/2026):
 
-**Verificação rápida:** um `404` do Fastify em `GET /` é resposta saudável: a aplicação subiu e está
-roteando.
+1. `git push` na branch.
+2. Na construção `-4bfqb`, **Execuções de compilação → Criar**, e aguardar **Bem-sucedido** (não há
+   gatilho automático confirmado).
+3. A compilação só troca a imagem no registry: a aplicação continua na revisão antiga. No app
+   `paraiso-api-ura-watson-homolog`, aba **Configuração → Reimplementar** (o botão não existe no menu
+   ⌄ da Visão geral). Ele pede um nome para a revisão: seguir a sequência numérica.
+4. Na **Visão geral**, a revisão nova precisa ficar **Pronto** com **100%** do tráfego.
+
+A imagem final leva só dependências de produção. O `--legacy-peer-deps` existe porque o
+`fastify-zod` declara peer `fastify@4` e o projeto roda o 5.
+
+Cada compilação deixa a imagem anterior sem tag no registry, ocupando a cota. Para limpar, use
+Container Registry → **Imagens**: exclua só as linhas sem tag, depois de conferir que o digest não é o
+da `latest` nem o da `homolog`.
+
+**Verificação rápida:** um `404` do Fastify em `GET /` (**Testar aplicativo**) é resposta saudável: a
+aplicação subiu e está roteando.
+
+### Logs em tempo real
+
+Pelo **IBM Cloud Shell** (ícone **>_** na barra superior do painel), que já traz a CLI com o plugin
+do Code Engine:
+
+```bash
+ibmcloud target -r us-east -g "Watson Paraiso"   # aspas: o nome tem espaço
+ibmcloud ce project select --name paraiso-watson-api
+ibmcloud ce app logs --application paraiso-api-ura-watson-homolog --follow   # Ctrl+C para sair
+```
+
+Sessão nova do Cloud Shell (depois de um tempo parado, ou outra aba) perde a seleção do projeto, e o
+`app logs` falha com "No project selected": rodar os três comandos de novo, em ordem. Em uma linha:
+`ibmcloud target -r us-east -g "Watson Paraiso" && ibmcloud ce project select --name paraiso-watson-api && ibmcloud ce app logs --application paraiso-api-ura-watson-homolog --follow`.
+
+O horário do log é **UTC** (3 horas à frente de Brasília).
+
+Mostra a requisição da Aspa (com o mascaramento de 3.7), a linha `[orchestrate] thread_id=… run_id=…`
+e a resposta. "Visualizar criação de log", no menu do app, abre o IBM Cloud Logs, que exige
+instância própria e é pago.
 
 ---
 

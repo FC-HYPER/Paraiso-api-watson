@@ -2,7 +2,12 @@ import { env } from '@/config/env';
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
 import { buildAspaControl } from '@/utils/aspa-control';
 import { resolveConversation } from '@/utils/conversation';
-import { dropAgentOpening, GREETING_TEXT, isGreetingOnly } from '@/utils/greeting';
+import {
+  dropAgentOpening,
+  GREETING_BEFORE_ANSWER_TEXT,
+  GREETING_TEXT,
+  isGreetingOnly,
+} from '@/utils/greeting';
 import { stripHandoffOffer } from '@/utils/handoff-offer';
 import { removeUnofficialContacts } from '@/utils/official-contacts';
 import { fixOfficialLinks } from '@/utils/official-links';
@@ -190,7 +195,7 @@ export async function sendMessageHandler(
     const generic: MessageResponse['data']['output']['generic'] = [];
     if (!noReply) {
       if (conversation.greet) {
-        generic.push({ response_type: 'text', text: GREETING_TEXT });
+        generic.push({ response_type: 'text', text: GREETING_BEFORE_ANSWER_TEXT });
         text = dropAgentOpening(text);
       }
       generic.push({ response_type: 'text', text });

@@ -13,6 +13,14 @@
 export const GREETING_TEXT =
   'Olá! Que bom receber você por aqui. 🙂 Sou o Habib, assistente virtual da Central Gold. Como posso ajudar hoje?';
 
+/**
+ * A saudação antes da resposta, quando o cliente já disse o que quer: sem "Como posso
+ * ajudar hoje?", que soaria como se o Habib não tivesse lido a mensagem (teste no
+ * WhatsApp de homologação, 19/11/2026).
+ */
+export const GREETING_BEFORE_ANSWER_TEXT =
+  'Olá! Que bom receber você por aqui. 🙂 Sou o Habib, assistente virtual da Central Gold.';
+
 /** Palavras que, sozinhas ou combinadas, formam só um cumprimento. Sem acento. */
 const GREETING_WORDS = new Set([
   'oi', 'ola', 'opa', 'eai', 'e', 'ai', 'alo', 'hello', 'hi', 'hey',

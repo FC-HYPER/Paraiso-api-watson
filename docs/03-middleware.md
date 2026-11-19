@@ -161,7 +161,7 @@ assistente virtual da Central Gold. Como posso ajudar hoje?".
 | Mensagem em conversa nova | Resposta |
 |---|---|
 | Só cumprimento ("oi", "boa tarde, tudo bem?", "e aí") | Só a saudação, **sem chamar o agente**. Sem run não há thread; o `context` volta com `last_message_at` e `greeted: true`, para a mensagem seguinte não ser saudada de novo. Log `[conversation] greeting only, agent not called` |
-| Qualquer outra | Dois itens no `generic`: a saudação e a resposta do Habib. Se a resposta começa com um "Olá!" curto, ele sai, para não haver dois "Olá" seguidos |
+| Qualquer outra | Dois itens no `generic`: a saudação **sem** "Como posso ajudar hoje?" (o cliente já disse o que quer; teste no WhatsApp, 19/11/2026) e a resposta do Habib. Se a resposta começa com um "Olá!" curto, ele sai, para não haver dois "Olá" seguidos |
 | Resposta vazia (`generic: []`) | Nada: o vazio é o sinal de transferência à Aspa |
 
 `greeted` só vale dentro de `CONVERSATION_IDLE_HOURS`. Depois de uma transferência a conversa volta

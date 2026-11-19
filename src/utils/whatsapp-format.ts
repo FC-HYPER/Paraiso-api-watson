@@ -40,8 +40,16 @@ export function plainLinks(text: string): string {
   });
 }
 
+/**
+ * O `:` logo depois do link sai: "pela [Área do Cliente](url):" viraria
+ * "pela Área do Cliente: url:", com o dois-pontos colado na URL (bateria de 19/11/2026).
+ */
+const MARKDOWN_LINK_THEN_COLON = /(\[[^\]]+\]\([^)\s]+\))\*?:(?=\s|$)/g;
+
 function convertLinks(text: string): string {
-  return text.replace(MARKDOWN_LINK, (_, label: string, url: string) => {
+  return text.replace(MARKDOWN_LINK_THEN_COLON, (match: string, link: string) =>
+    match.slice(link.length).startsWith('*') ? `${link}*` : link,
+  ).replace(MARKDOWN_LINK, (_, label: string, url: string) => {
     const target = url.replace(/^(?:mailto|tel):/i, '');
     const bare = (value: string) =>
       value

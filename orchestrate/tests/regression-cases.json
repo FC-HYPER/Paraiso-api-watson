@@ -878,11 +878,15 @@
   {
     "id": "taxa_notificacao",
     "kb": "boletos_carnes",
-    "source": "TAXA DE NOTIFICAÇÃO: o KB só cita o nome; encaminha sem explicar",
+    "source": "TAXA DE NOTIFICAÇÃO: definição do tipo K do DATA POINT (19/11/2026); explica com o texto fixo e encaminha",
     "turns": [
       "Por que tem uma taxa de notificação no meu extrato?"
     ],
     "transfer": "Ajuizados",
+    "include": [
+      "despesas de cobrança",
+      "custas previstas no contrato"
+    ],
     "exclude": [
       "notificação de cobrança",
       "inadimpl",

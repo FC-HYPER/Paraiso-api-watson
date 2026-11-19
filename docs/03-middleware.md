@@ -141,7 +141,7 @@ Na entrada:
 |---|---|
 | Sem `thread_id` | Sem `thread_id`: thread nova |
 | `last_message_at` há mais de `CONVERSATION_IDLE_HOURS` (padrão 24 h) | Sem `thread_id`: thread nova. Log `[conversation] new conversation: idle …h, previous thread_id=…` |
-| `thread_id` sem `last_message_at` ou com valor ilegível (conversas abertas antes desta regra) | Continua a thread |
+| `thread_id` sem `last_message_at` ou com valor ilegível | Sem `thread_id`: thread nova. Só existe na homologação, no telefone de teste preso a uma thread de antes da marca (a produção ainda não passa pelo Orchestrate). Log `[conversation] new conversation: no last_message_at, …` |
 | Demais casos | Continua a thread |
 
 Na saída, o `thread_id` **não volta** quando a conversa sai do Habib: transferência
@@ -151,6 +151,23 @@ ao Habib um histórico incompleto. O id continua na linha `[orchestrate]` do log
 
 As variáveis de controle não precisam disso: o middleware só lê `phone` e `thread_id` do `context`
 recebido, e o contexto do Orchestrate vale para uma run (02-decisoes.md, 2.1).
+
+### Saudação do primeiro contato
+
+Em conversa nova, a resposta abre com o texto da Jô, literal, em
+[`greeting.ts`](../src/utils/greeting.ts): "Olá! Que bom receber você por aqui. 🙂 Sou o Habib,
+assistente virtual da Central Gold. Como posso ajudar hoje?".
+
+| Mensagem em conversa nova | Resposta |
+|---|---|
+| Só cumprimento ("oi", "boa tarde, tudo bem?", "e aí") | Só a saudação, **sem chamar o agente**. Sem run não há thread; o `context` volta com `last_message_at` e `greeted: true`, para a mensagem seguinte não ser saudada de novo. Log `[conversation] greeting only, agent not called` |
+| Qualquer outra | Dois itens no `generic`: a saudação e a resposta do Habib. Se a resposta começa com um "Olá!" curto, ele sai, para não haver dois "Olá" seguidos |
+| Resposta vazia (`generic: []`) | Nada: o vazio é o sinal de transferência à Aspa |
+
+`greeted` só vale dentro de `CONVERSATION_IDLE_HOURS`. Depois de uma transferência a conversa volta
+sem `thread_id`, então a próxima mensagem ao Habib também é saudada. Para ver a saudação de novo
+num teste de homologação sem esperar 24 h, faça uma transferência ou cadastre um
+`CONVERSATION_IDLE_HOURS` pequeno (ex.: `0.05`, 3 min), e retire depois.
 
 ### Entrada: o que vai ao agente
 
@@ -185,7 +202,7 @@ cliente real. Só passa o que estiver na lista fechada e com valor válido:
 [`whatsapp-format.ts`](../src/utils/whatsapp-format.ts) converte o Markdown do agente antes de
 responder: `**texto**` e `__texto__` viram `*texto*` (negrito do WhatsApp), e títulos com `#` viram
 uma linha em negrito. Asterisco solto (`5 * 3`) não é tocado. Links em Markdown (`[texto](url)`)
-ficam como estão, porque as instructions pedem esse formato.
+ficam para o fim, porque a trava do link oficial depende desse formato.
 
 Depois da conversão, o controller aplica, nesta ordem, as travas que o prompt não garante:
 
@@ -195,9 +212,11 @@ Depois da conversão, o controller aplica, nesta ordem, as travas que o prompt n
 | Link da Área do Cliente | [`official-links.ts`](../src/utils/official-links.ts) | Link em Markdown com rótulo "Área do Cliente" ou "Portal do Cliente", ou apontando para `portaldocliente.paraisogold.com.br`, passa a apontar para `https://portaldocliente.paraisogold.com.br/portal/login` |
 | Oferta de encaminhamento | [`handoff-offer.ts`](../src/utils/handoff-offer.ts) | Sem transferência, a frase "posso te encaminhar…" sai: o Habib encaminha ou não encaminha |
 | Promessa de registro | [`registration-claim.ts`](../src/utils/registration-claim.ts) | "Registrei", "deixei registrado", "seu pedido foi registrado" saem, porque não existe registro nem protocolo. Com transferência, a resposta inteira vira o texto padrão da transferência |
+| Contato fora da lista | [`official-contacts.ts`](../src/utils/official-contacts.ts) | A frase com e-mail ou telefone que não está nos KBs validados nem em CONTATOS OFICIAIS sai. Se a resposta era só essa frase, vira "Não tenho essa informação disponível." (o original traria o contato). Telefone só conta com DDD, `+55` ou `0800`/`0300`, para não casar com CEP, ano ou número de contrato. **Contato novo num KB precisa entrar na lista**, senão a frase sai. Log `unofficial contact removed (…)` |
+| Link em texto simples | [`whatsapp-format.ts`](../src/utils/whatsapp-format.ts) (`plainLinks`) | Por último: `[Área do Cliente](https://…)` vira `Área do Cliente: https://…`, e o WhatsApp torna a URL clicável. Rótulo igual ao endereço vira só a URL; `mailto:` e `tel:` saem. O WhatsApp mostrava o Markdown cru (teste ponta a ponta, 03/11/2026) |
 
 As frases são retiradas inteiras; uma linha que sobra só com emoji ou pontuação também sai, e, se não
-sobrar nada, fica o texto original. Cada trava gera um aviso no log com o `run_id`.
+sobrar nada, fica o texto original (exceto na trava de contato). Cada trava gera um aviso no log com o `run_id`.
 
 ---
 

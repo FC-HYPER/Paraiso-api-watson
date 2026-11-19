@@ -10,7 +10,11 @@ import { z } from 'zod';
  * seguem para o agente. Sem isso o Fastify as descartaria.
  */
 const messageContextSchema = z
-  .object({ thread_id: z.string().optional(), last_message_at: z.string().optional() })
+  .object({
+    thread_id: z.string().optional(),
+    last_message_at: z.string().optional(),
+    greeted: z.boolean().optional(),
+  })
   .passthrough();
 
 const messageRequestSchema = z.object({
@@ -58,6 +62,9 @@ const messageResponseSchema = z.object({
       // Hora da resposta (ISO, UTC). Volta na mensagem seguinte e decide se a
       // conversa recomeça. Ver src/utils/conversation.ts.
       last_message_at: z.string().optional(),
+      // Só na resposta que foi apenas a saudação: a mensagem seguinte ainda não tem
+      // thread e não deve ser saudada de novo. Ver src/utils/conversation.ts.
+      greeted: z.boolean().optional(),
       skills: z
         .object({
           'main skill': z.object({

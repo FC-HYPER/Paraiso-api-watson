@@ -1,8 +1,9 @@
 // Bateria de regressão do Habib: roda cada caso N vezes pelo middleware local e confere a
 // transferência e o conteúdo da resposta.
 //
-// Uso (com o middleware no ar em localhost:3333):
+// Uso (com o middleware no ar em localhost:3333, ou no endereço de MIDDLEWARE_URL):
 //   node orchestrate/tests/regression.mjs [repetições] [saída.json]
+//   ONLY=taxa_notificacao,juridico_notificacao node orchestrate/tests/regression.mjs 3
 //   node orchestrate/tests/regression.mjs reevaluate <saída.json> <resultados-antigos.json>
 // O modo reevaluate reaplica o verificador atual a respostas já salvas, sem chamar o agente.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -15,7 +16,11 @@ const API_KEY = readFileSync(join(ROOT, '.env'), 'utf8')
   .match(/^API_KEY=(.*)$/m)[1]
   .trim()
   .replace(/^["']|["']$/g, '');
-const CASES = JSON.parse(readFileSync(join(HERE, 'regression-cases.json'), 'utf8'));
+const ONLY = process.env.ONLY?.split(',').map((id) => id.trim()).filter(Boolean);
+const CASES = JSON.parse(readFileSync(join(HERE, 'regression-cases.json'), 'utf8')).filter(
+  (c) => !ONLY?.length || ONLY.includes(c.id),
+);
+const MIDDLEWARE_URL = process.env.MIDDLEWARE_URL ?? 'http://localhost:3333';
 const CONCURRENCY = 4;
 const CLIENT_AREA_URL = 'https://portaldocliente.paraisogold.com.br/portal/login';
 
@@ -32,7 +37,7 @@ const GLOBAL_EXCLUDE = [
 
 async function sendTurn(input, context) {
   const started = Date.now();
-  const res = await fetch('http://localhost:3333/api/orchestrate/message', {
+  const res = await fetch(`${MIDDLEWARE_URL}/api/orchestrate/message`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', apikey: API_KEY },
     body: JSON.stringify({ input, ...(context ? { context } : {}) }),
@@ -55,9 +60,10 @@ async function runCase(testCase, rep) {
     last = await sendTurn(message, context);
     const data = last.body?.data;
     texts.push((data?.output?.generic ?? []).map((g) => g.text).join('\n'));
-    const threadId = data?.context?.thread_id;
-    if (!threadId) break;
-    context = { thread_id: threadId };
+    // O contexto inteiro volta, como a Aspa faz: sem `last_message_at` o middleware
+    // abre conversa nova a cada turno (src/utils/conversation.ts).
+    if (!data?.context?.thread_id) break;
+    context = data.context;
   }
   const data = last.body?.data;
   return evaluate(testCase, rep, {
@@ -76,8 +82,9 @@ function evaluate(testCase, rep, { status, text, got, seconds, thread_id }) {
   for (const r of testCase.include ?? []) if (!new RegExp(r, 'i').test(text)) failures.push(`falta /${r}/`);
   for (const r of testCase.exclude ?? []) if (new RegExp(r, 'i').test(text)) failures.push(`contém /${r}/`);
   for (const r of GLOBAL_EXCLUDE) if (r.test(text)) failures.push(`contém ${r}`);
-  for (const m of text.matchAll(/\[\*?Área do Cliente\*?\]\(([^)]+)\)/gi))
-    if (m[1] !== CLIENT_AREA_URL) failures.push(`link Área do Cliente errado: ${m[1]}`);
+  // O middleware entrega o link como `Área do Cliente: url` (src/utils/whatsapp-format.ts).
+  for (const m of text.matchAll(/\[\*?Área do Cliente\*?\]\(([^)]+)\)|Área do Cliente\*?: (\S+?)[.,;!?)]?(?=\s|$)/gi))
+    if ((m[1] ?? m[2]) !== CLIENT_AREA_URL) failures.push(`link Área do Cliente errado: ${m[1] ?? m[2]}`);
   return { id: testCase.id, kb: testCase.kb, rep, ok: failures.length === 0, failures, got, status, seconds, text, thread_id };
 }
 

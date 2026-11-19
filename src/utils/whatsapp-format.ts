@@ -5,8 +5,10 @@
  * `*texto*`, não `**texto**`, e não existe título com `#`. Sem a conversão, o
  * cliente vê os asteriscos duplos e o `#` como texto (docs/03-middleware.md 3.5).
  *
- * Links em Markdown (`[texto](url)`) ficam como estão: as instructions pedem esse
- * formato, e a decisão de convertê-los depende de como a Aspa entrega o texto.
+ * Links em Markdown (`[texto](url)`) não mudam aqui: a trava do link oficial
+ * (`official-links.ts`) depende desse formato. Eles viram texto simples no fim, com
+ * `plainLinks`, porque o WhatsApp mostra o Markdown cru (teste ponta a ponta,
+ * 03/11/2026).
  */
 
 // `**texto**` e `__texto__`, sem espaço logo dentro dos marcadores, para não
@@ -15,6 +17,28 @@ const MARKDOWN_BOLD = /(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g;
 
 // `# Título` até `###### Título`, no começo da linha.
 const MARKDOWN_HEADING = /^#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/gm;
+
+/** `[rótulo](url)`, o mesmo formato que `official-links.ts` lê. */
+const MARKDOWN_LINK = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+
+/**
+ * `[Área do Cliente](https://…)` vira `Área do Cliente: https://…`, e o WhatsApp torna
+ * a URL clicável sozinho. Rótulo que já é o endereço, com ou sem `https://`, vira só a
+ * URL. `mailto:` e `tel:` saem do endereço.
+ */
+export function plainLinks(text: string): string {
+  return text.replace(MARKDOWN_LINK, (_, label: string, url: string) => {
+    const target = url.replace(/^(?:mailto|tel):/i, '');
+    const bare = (value: string) =>
+      value
+        .replace(/[*_]/g, '')
+        .trim()
+        .replace(/^https?:\/\//i, '')
+        .replace(/\/$/, '')
+        .toLowerCase();
+    return bare(label) === bare(target) ? target : `${label}: ${target}`;
+  });
+}
 
 export function toWhatsAppText(text: string): string {
   return (

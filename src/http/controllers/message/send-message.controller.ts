@@ -2,11 +2,13 @@ import { env } from '@/config/env';
 import type { MessageInput, MessageResponse } from '@/models/message.schema';
 import { buildAspaControl } from '@/utils/aspa-control';
 import { resolveConversation } from '@/utils/conversation';
+import { dropAgentOpening, GREETING_TEXT, isGreetingOnly } from '@/utils/greeting';
 import { stripHandoffOffer } from '@/utils/handoff-offer';
+import { removeUnofficialContacts } from '@/utils/official-contacts';
 import { fixOfficialLinks } from '@/utils/official-links';
 import { removeRegistrationClaim } from '@/utils/registration-claim';
 import { buildTransferFallback } from '@/utils/transfer-fallback';
-import { toWhatsAppText } from '@/utils/whatsapp-format';
+import { plainLinks, toWhatsAppText } from '@/utils/whatsapp-format';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { OrchestrateAgent, OrchestrateError } from 'services/orchestrate.service';
 import { z } from 'zod';
@@ -63,6 +65,27 @@ export async function sendMessageHandler(
     request.log.info(
       `[conversation] new conversation: idle ${conversation.idleHours?.toFixed(1)}h, previous thread_id=${context?.thread_id}`,
     );
+  } else if (conversation.newConversation === 'no_marker') {
+    request.log.info(
+      `[conversation] new conversation: no last_message_at, previous thread_id=${context?.thread_id}`,
+    );
+  }
+
+  // Conversa nova que começa só com um cumprimento: a resposta é a saudação, sem
+  // chamar o agente. Sem run não há thread; `greeted` evita saudar de novo na mensagem
+  // seguinte, que já chega com a pergunta. Ver src/utils/greeting.ts.
+  if (conversation.greet && isGreetingOnly(input)) {
+    request.log.info('[conversation] greeting only, agent not called');
+
+    const body: MessageResponse = {
+      success: true,
+      data: {
+        output: { generic: [{ response_type: 'text', text: GREETING_TEXT }] },
+        context: { last_message_at: now.toISOString(), greeted: true },
+      },
+    };
+
+    return reply.status(200).send(body);
   }
 
   try {
@@ -138,12 +161,39 @@ export async function sendMessageHandler(
       }
     }
 
+    // E-mail ou telefone fora da lista oficial não vai ao cliente. Ver
+    // `src/utils/official-contacts.ts`.
+    if (!fallback) {
+      const contacts = removeUnofficialContacts(text);
+      if (contacts.removed.length > 0) {
+        request.log.warn(
+          `[orchestrate] unofficial contact removed (${contacts.removed.join(', ')}) - run_id=${result.runId ?? '-'}`,
+        );
+        text = contacts.text;
+      }
+    }
+
     const noReply = text === '' || text === 'None';
 
     if (noReply) {
       request.log.warn(
         `[orchestrate] no reply (${text || 'empty'}), sending empty generic - run_id=${result.runId ?? '-'}`,
       );
+    }
+
+    // Por último, porque as travas acima leem o Markdown: o WhatsApp mostraria
+    // `[texto](url)` cru. Ver `src/utils/whatsapp-format.ts`.
+    text = plainLinks(text);
+
+    // Conversa nova: a saudação vai antes da resposta, como item próprio. Com
+    // `generic` vazio não vai nada, porque o vazio é o sinal de transferência à Aspa.
+    const generic: MessageResponse['data']['output']['generic'] = [];
+    if (!noReply) {
+      if (conversation.greet) {
+        generic.push({ response_type: 'text', text: GREETING_TEXT });
+        text = dropAgentOpening(text);
+      }
+      generic.push({ response_type: 'text', text });
     }
 
     // A conversa sai do Habib na transferência e no `generic` vazio, que a Aspa
@@ -159,9 +209,7 @@ export async function sendMessageHandler(
     const body: MessageResponse = {
       success: true,
       data: {
-        output: {
-          generic: noReply ? [] : [{ response_type: 'text', text }],
-        },
+        output: { generic },
         context: {
           ...(result.threadId && !handedOff && { thread_id: result.threadId }),
           last_message_at: now.toISOString(),

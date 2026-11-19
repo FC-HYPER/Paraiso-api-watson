@@ -26,7 +26,21 @@ const MARKDOWN_LINK = /\[([^\]]+)\]\(([^)\s]+)\)/g;
  * a URL clicável sozinho. Rótulo que já é o endereço, com ou sem `https://`, vira só a
  * URL. `mailto:` e `tel:` saem do endereço.
  */
+/**
+ * URL colada no `*` que fecha um negrito: `*Área do Cliente: https://…*` sai de
+ * `**[Área do Cliente](…)**`, e o WhatsApp levaria o asterisco para dentro do link
+ * (bateria de 19/11/2026). O negrito fecha antes da URL.
+ */
+const BOLD_ENDING_IN_URL = /\*([^*\n]*?)(https?:\/\/[^\s*]+?)\*/g;
+
 export function plainLinks(text: string): string {
+  return convertLinks(text).replace(BOLD_ENDING_IN_URL, (_, before: string, url: string) => {
+    const label = before.trimEnd();
+    return label ? `*${label}* ${url}` : url;
+  });
+}
+
+function convertLinks(text: string): string {
   return text.replace(MARKDOWN_LINK, (_, label: string, url: string) => {
     const target = url.replace(/^(?:mailto|tel):/i, '');
     const bare = (value: string) =>
